@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-08-15 21:44:54",
+  "total_duration": 0.29301023483276367,
+  "overall_stats": {
+    "total_tests": 0,
+    "total_successes": 0,
+    "total_failures": 0,
+    "total_errors": 3,
+    "total_skipped": 0
+  },
+  "module_results": {
+    "test_config": {
+      "tests_run": 0,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "success_count": 0,
+      "duration": 0,
+      "success_rate": 0,
+      "output": "Import error: No module named 'src'"
+    },
+    "test_models": {
+      "tests_run": 0,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "success_count": 0,
+      "duration": 0,
+      "success_rate": 0,
+      "output": "Import error: No module named 'src'"
+    },
+    "test_auth": {
+      "tests_run": 0,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "success_count": 0,
+      "duration": 0,
+      "success_rate": 0,
+      "output": "Import error: No module named 'src'"
+    }
+  }
+}

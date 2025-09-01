@@ -1,0 +1,375 @@
+# API Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-wellness-api
+  namespace: ai-wellness-vision
+  labels:
+    app: ai-wellness-api
+    component: api
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-wellness-api
+  template:
+    metadata:
+      labels:
+        app: ai-wellness-api
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: ai-wellness-api
+        image: ghcr.io/ai-wellness-vision/api:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: ENVIRONMENT
+        - name: DATABASE_URL
+          value: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_HOST
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_PORT
+        - name: DATABASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_NAME
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: ai-wellness-secrets
+              key: DATABASE_USER
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ai-wellness-secrets
+              key: DATABASE_PASSWORD
+        - name: REDIS_URL
+          value: "redis://$(REDIS_HOST):$(REDIS_PORT)/0"
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: REDIS_PORT
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-wellness-secrets
+              key: SECRET_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ai-wellness-config
+      - name: logs-volume
+        emptyDir: {}
+      imagePullSecrets:
+      - name: registry-secret
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ai-wellness-api
+              topologyKey: kubernetes.io/hostname
+---
+# Streamlit Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-wellness-streamlit
+  namespace: ai-wellness-vision
+  labels:
+    app: ai-wellness-streamlit
+    component: ui
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-wellness-streamlit
+  template:
+    metadata:
+      labels:
+        app: ai-wellness-streamlit
+        component: ui
+    spec:
+      containers:
+      - name: ai-wellness-streamlit
+        image: ghcr.io/ai-wellness-vision/streamlit:latest
+        ports:
+        - containerPort: 8501
+          name: http
+        env:
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: ENVIRONMENT
+        - name: API_BASE_URL
+          value: "http://ai-wellness-api-service:8000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ai-wellness-config
+      imagePullSecrets:
+      - name: registry-secret
+---
+# Worker Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-wellness-worker
+  namespace: ai-wellness-vision
+  labels:
+    app: ai-wellness-worker
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-wellness-worker
+  template:
+    metadata:
+      labels:
+        app: ai-wellness-worker
+        component: worker
+    spec:
+      containers:
+      - name: ai-wellness-worker
+        image: ghcr.io/ai-wellness-vision/worker:latest
+        env:
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: ENVIRONMENT
+        - name: DATABASE_URL
+          value: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_HOST
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_PORT
+        - name: DATABASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: DATABASE_NAME
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: ai-wellness-secrets
+              key: DATABASE_USER
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ai-wellness-secrets
+              key: DATABASE_PASSWORD
+        - name: REDIS_URL
+          value: "redis://$(REDIS_HOST):$(REDIS_PORT)/0"
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ai-wellness-config
+              key: REDIS_PORT
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: models-volume
+          mountPath: /app/models
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ai-wellness-config
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: ai-wellness-models-pvc
+      imagePullSecrets:
+      - name: registry-secret
+---
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-wellness-api-service
+  namespace: ai-wellness-vision
+  labels:
+    app: ai-wellness-api
+spec:
+  selector:
+    app: ai-wellness-api
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# Streamlit Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-wellness-streamlit-service
+  namespace: ai-wellness-vision
+  labels:
+    app: ai-wellness-streamlit
+spec:
+  selector:
+    app: ai-wellness-streamlit
+  ports:
+  - name: http
+    port: 8501
+    targetPort: 8501
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-wellness-ingress
+  namespace: ai-wellness-vision
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - ai-wellness.example.com
+    secretName: ai-wellness-tls
+  rules:
+  - host: ai-wellness.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-wellness-service
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-wellness-service
+            port:
+              number: 8501

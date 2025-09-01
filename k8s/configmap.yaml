@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-wellness-config
+  namespace: ai-wellness-vision
+data:
+  ENVIRONMENT: "production"
+  DATABASE_HOST: "postgres-service"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "ai_wellness"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  LOG_LEVEL: "INFO"
+  PROMETHEUS_ENABLED: "true"
+  METRICS_PORT: "9090"
+  HEALTH_CHECK_INTERVAL: "30"
+  MAX_WORKERS: "4"
+  WORKER_TIMEOUT: "30"
+  MODEL_CACHE_SIZE: "1000"
+  SESSION_TIMEOUT: "3600"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: ai-wellness-vision
+data:
+  nginx.conf: |
+    upstream api_backend {
+        server ai-wellness-api-service:8000;
+    }
+    
+    upstream streamlit_backend {
+        server ai-wellness-streamlit-service:8501;
+    }
+    
+    server {
+        listen 80;
+        server_name _;
+        
+        # Security headers
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+        
+        # API routes
+        location /api/ {
+            proxy_pass http://api_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_timeout 60s;
+        }
+        
+        # Health checks
+        location /health {
+            proxy_pass http://api_backend;
+            proxy_set_header Host $host;
+        }
+        
+        # Streamlit app
+        location / {
+            proxy_pass http://streamlit_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # WebSocket support for Streamlit
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 86400;
+        }
+    }
+  MAX_WORKERS: "4"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-wellness-secrets
+  namespace: ai-wellness-vision
+type: Opaque
+data:
+  # Base64 encoded values
+  DATABASE_PASSWORD: cGFzc3dvcmQ=  # password
+  DATABASE_USER: cG9zdGdyZXM=      # postgres
+  SECRET_KEY: c3VwZXItc2VjcmV0LWtleS1mb3ItcHJvZHVjdGlvbg==  # super-secret-key-for-production

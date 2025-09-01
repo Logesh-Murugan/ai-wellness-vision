@@ -1,0 +1,16 @@
+{
+  "app": {
+    "DEBUG": true,
+    "LOG_LEVEL": "DEBUG"
+  },
+  "model": {
+    "WHISPER_MODEL_SIZE": "base",
+    "IMAGE_MODEL_NAME": "resnet50"
+  },
+  "cache": {
+    "ENABLE_CACHE": false
+  },
+  "monitoring": {
+    "ENABLE_METRICS": false
+  }
+}

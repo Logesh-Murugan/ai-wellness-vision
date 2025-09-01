@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Development AI Wellness Vision Application
+  ai-wellness-dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@postgres-dev:5432/ai_wellness_dev
+      - REDIS_URL=redis://redis-dev:6379/0
+    volumes:
+      - .:/app
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    depends_on:
+      - postgres-dev
+      - redis-dev
+    restart: unless-stopped
+    command: ["python", "-m", "streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+  # Development PostgreSQL Database
+  postgres-dev:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ai_wellness_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+
+  # Development Redis Cache
+  redis-dev:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    restart: unless-stopped
+
+  # Development API Gateway
+  api-gateway-dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@postgres-dev:5432/ai_wellness_dev
+      - REDIS_URL=redis://redis-dev:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres-dev
+      - redis-dev
+    restart: unless-stopped
+    command: ["uvicorn", "src.api.gateway:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  default:
+    driver: bridge

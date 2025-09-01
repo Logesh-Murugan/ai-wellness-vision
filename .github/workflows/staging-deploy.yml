@@ -1,0 +1,85 @@
+name: Staging Deployment
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl for staging
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        kubectl config current-context
+    
+    - name: Create namespace if not exists
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl create namespace ai-wellness-staging --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Deploy to staging
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Create staging-specific manifests
+        cp -r k8s k8s-staging
+        
+        # Update namespace in all manifests
+        find k8s-staging -name "*.yaml" -exec sed -i 's/namespace: ai-wellness-vision/namespace: ai-wellness-staging/g' {} \;
+        
+        # Update image tags to use develop branch
+        sed -i "s|ghcr.io/ai-wellness-vision/api:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:develop-${{ github.sha }}|g" k8s-staging/ai-wellness-app.yaml
+        sed -i "s|ghcr.io/ai-wellness-vision/streamlit:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/streamlit:develop-${{ github.sha }}|g" k8s-staging/ai-wellness-app.yaml
+        sed -i "s|ghcr.io/ai-wellness-vision/worker:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:develop-${{ github.sha }}|g" k8s-staging/ai-wellness-app.yaml
+        
+        # Apply manifests
+        kubectl apply -f k8s-staging/
+        
+        # Wait for deployments
+        kubectl rollout status deployment/ai-wellness-api -n ai-wellness-staging --timeout=300s
+        kubectl rollout status deployment/ai-wellness-streamlit -n ai-wellness-staging --timeout=300s
+        kubectl rollout status deployment/ai-wellness-worker -n ai-wellness-staging --timeout=300s
+    
+    - name: Run staging tests
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Get staging service URL
+        STAGING_URL=$(kubectl get ingress ai-wellness-ingress -n ai-wellness-staging -o jsonpath='{.spec.rules[0].host}')
+        
+        # Run deployment tests against staging
+        kubectl run staging-test \
+          --image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:develop-${{ github.sha }} \
+          --rm -i --restart=Never \
+          -n ai-wellness-staging \
+          --env="BASE_URL=https://$STAGING_URL" \
+          -- python -m pytest tests/test_deployment.py -v
+    
+    - name: Notify staging deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#staging-deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          Staging deployment ${{ job.status }}!
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          URL: https://staging.ai-wellness.example.com
+      if: always()

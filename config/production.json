@@ -1,0 +1,19 @@
+{
+    "app": {
+        "DEBUG": false,
+        "LOG_LEVEL": "INFO"
+    },
+    "logging": {
+        "USE_JSON_LOGGING": true
+    },
+    "cache": {
+        "ENABLE_CACHE": true
+    },
+    "monitoring": {
+        "ENABLE_METRICS": true
+    },
+    "model": {
+        "WHISPER_MODEL_SIZE": "small",
+        "IMAGE_MODEL_NAME": "efficientnet"
+    }
+}
