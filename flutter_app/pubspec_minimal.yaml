@@ -1,0 +1,39 @@
+name: ai_wellness_vision
+description: AI-powered health and wellness analysis platform - Minimal Version
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI & Navigation
+  cupertino_icons: ^1.0.2
+  
+  # State Management (minimal)
+  provider: ^6.0.5
+  
+  # HTTP & API (minimal)
+  http: ^1.1.0
+  
+  # Storage (minimal)
+  shared_preferences: ^2.2.0
+  
+  # Media (minimal)
+  image_picker: ^1.0.4
+  
+  # Utilities
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true

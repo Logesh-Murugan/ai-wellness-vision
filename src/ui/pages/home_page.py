@@ -1,11 +1,32 @@
 # home_page.py - Home page for AI WellnessVision
 import streamlit as st
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import pandas as pd
-from ui.utils.session_manager import SessionManager
-from ui.utils.theme_config import create_custom_component, format_confidence_score
+import random
+
+# Optional imports with fallbacks
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    import pandas as pd
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
+try:
+    from src.ui.utils.session_manager import SessionManager
+    from src.ui.utils.theme_config import create_custom_component, format_confidence_score
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    # Fallback session manager
+    class SessionManager:
+        def get_user_info(self): return {"username": "Demo User"}
+        def get_user_stats(self): return {"total_analyses": 0, "total_chats": 0, "total_voice_interactions": 0, "total_conversations": 0}
+        def get_conversation_history(self, limit=None): return []
+        def get_analysis_history(self, limit=None): return []
+    
+    def create_custom_component(content, comp_type="card"):
+        return f'<div style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; margin: 0.5rem 0;">{content}</div>'
 
 def render():
     """Render the home page"""
@@ -127,16 +148,20 @@ def render():
         
         # Quick action buttons
         if st.button("📷 Analyze Image", use_container_width=True):
-            st.switch_page("pages/image_analysis.py")
+            st.session_state.current_page = "Image Analysis"
+            st.rerun()
         
         if st.button("💬 Start Chat", use_container_width=True):
-            st.switch_page("pages/chat_interface.py")
+            st.session_state.current_page = "Chat Assistant"
+            st.rerun()
         
         if st.button("🎤 Voice Interaction", use_container_width=True):
-            st.switch_page("pages/voice_interaction.py")
+            st.session_state.current_page = "Voice Interaction"
+            st.rerun()
         
         if st.button("📊 View History", use_container_width=True):
-            st.switch_page("pages/history.py")
+            st.session_state.current_page = "History & Reports"
+            st.rerun()
         
         st.markdown("---")
         
@@ -158,51 +183,61 @@ def render():
     if user_stats['total_conversations'] > 0 or user_stats['total_analyses'] > 0:
         st.subheader("📈 Usage Analytics")
         
-        # Create sample data for visualization
-        dates = [datetime.now() - timedelta(days=i) for i in range(7, 0, -1)]
-        
-        # Mock data based on current session (in real app, this would be from database)
-        daily_chats = [0, 0, 0, 0, 0, 0, user_stats['total_chats']]
-        daily_analyses = [0, 0, 0, 0, 0, 0, user_stats['total_analyses']]
-        
-        df = pd.DataFrame({
-            'Date': dates,
-            'Chats': daily_chats,
-            'Analyses': daily_analyses
-        })
-        
-        # Create charts
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            fig_line = px.line(
-                df, 
-                x='Date', 
-                y=['Chats', 'Analyses'],
-                title='Daily Activity Trend',
-                color_discrete_map={'Chats': '#1f77b4', 'Analyses': '#ff7f0e'}
-            )
-            fig_line.update_layout(height=300)
-            st.plotly_chart(fig_line, use_container_width=True)
-        
-        with col_chart2:
-            # Pie chart of activity types
-            activity_data = {
-                'Activity Type': ['Chats', 'Analyses', 'Voice Interactions'],
-                'Count': [
-                    user_stats['total_chats'],
-                    user_stats['total_analyses'], 
-                    user_stats['total_voice_interactions']
-                ]
-            }
+        if PLOTLY_AVAILABLE:
+            # Create sample data for visualization
+            dates = [datetime.now() - timedelta(days=i) for i in range(7, 0, -1)]
             
-            fig_pie = px.pie(
-                values=activity_data['Count'],
-                names=activity_data['Activity Type'],
-                title='Activity Distribution'
-            )
-            fig_pie.update_layout(height=300)
-            st.plotly_chart(fig_pie, use_container_width=True)
+            # Mock data based on current session (in real app, this would be from database)
+            daily_chats = [0, 0, 0, 0, 0, 0, user_stats['total_chats']]
+            daily_analyses = [0, 0, 0, 0, 0, 0, user_stats['total_analyses']]
+            
+            df = pd.DataFrame({
+                'Date': dates,
+                'Chats': daily_chats,
+                'Analyses': daily_analyses
+            })
+            
+            # Create charts
+            col_chart1, col_chart2 = st.columns(2)
+            
+            with col_chart1:
+                fig_line = px.line(
+                    df, 
+                    x='Date', 
+                    y=['Chats', 'Analyses'],
+                    title='Daily Activity Trend',
+                    color_discrete_map={'Chats': '#1f77b4', 'Analyses': '#ff7f0e'}
+                )
+                fig_line.update_layout(height=300)
+                st.plotly_chart(fig_line, use_container_width=True)
+            
+            with col_chart2:
+                # Pie chart of activity types
+                activity_data = {
+                    'Activity Type': ['Chats', 'Analyses', 'Voice Interactions'],
+                    'Count': [
+                        user_stats['total_chats'],
+                        user_stats['total_analyses'], 
+                        user_stats['total_voice_interactions']
+                    ]
+                }
+                
+                fig_pie = px.pie(
+                    values=activity_data['Count'],
+                    names=activity_data['Activity Type'],
+                    title='Activity Distribution'
+                )
+                fig_pie.update_layout(height=300)
+                st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            # Fallback simple metrics display
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Chats Today", user_stats['total_chats'])
+            with col2:
+                st.metric("Analyses Today", user_stats['total_analyses'])
+            with col3:
+                st.metric("Voice Interactions", user_stats['total_voice_interactions'])
     
     # Health tips and information
     st.subheader("💡 Daily Health Tips")

@@ -1,1 +1,1 @@
-# UI package for Streamlit web interface
+# UI package for AI WellnessVision

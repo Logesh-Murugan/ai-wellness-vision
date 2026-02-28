@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai_wellness_postgres
+    environment:
+      POSTGRES_DB: ai_wellness_vision
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres_setup.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-EXEC", "pg_isready -U postgres -d ai_wellness_vision"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - ai_wellness_network
+
+  api:
+    build: .
+    container_name: ai_wellness_api
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/ai_wellness_vision
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    command: python main_api_server_postgres.py
+    networks:
+      - ai_wellness_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_wellness_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai_wellness_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  ai_wellness_network:
+    driver: bridge

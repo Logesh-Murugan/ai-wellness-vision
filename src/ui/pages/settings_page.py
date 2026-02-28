@@ -1,7 +1,21 @@
 # settings_page.py - Settings and preferences page
 import streamlit as st
-from ui.utils.session_manager import SessionManager
-from ui.utils.theme_config import create_custom_component
+
+# Optional imports with fallbacks
+try:
+    from ui.utils.session_manager import SessionManager
+    from ui.utils.theme_config import create_custom_component
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    # Fallback implementations
+    class SessionManager:
+        def get_user_info(self): return {"username": "Demo User", "email": "demo@example.com"}
+        def get_preferences(self): return {"language": "en", "theme": "light", "voice_enabled": True, "notifications": True}
+        def update_preferences(self, prefs): pass
+    
+    def create_custom_component(content, comp_type="card"):
+        return f'<div style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; margin: 0.5rem 0;">{content}</div>'
 
 def render():
     """Render the settings page"""

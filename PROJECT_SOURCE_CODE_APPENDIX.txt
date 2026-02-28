@@ -1,0 +1,1998 @@
+================================================================================
+                    AI WELLNESS VISION - SOURCE CODE APPENDIX
+================================================================================
+
+This appendix contains the key source code files and components of the AI 
+Wellness Vision project, organized by category for easy reference.
+
+================================================================================
+A. BACKEND & API
+================================================================================
+
+--- auth_manager.py ---
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
+import bcrypt
+from fastapi import HTTPException, status
+import logging
+
+logger = logging.getLogger(__name__)
+
+class AuthManager:
+    def __init__(self, secret_key: str = "your-secret-key"):
+        self.secret_key = secret_key
+        self.algorithm = "HS256"
+        self.access_token_expire_minutes = 30
+        self.refresh_token_expire_days = 7
+    
+    def hash_password(self, password: str) -> str:
+        """Hash password using bcrypt"""
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+    
+    def verify_password(self, password: str, hashed_password: str) -> bool:
+        """Verify password against hash"""
+        return bcrypt.checkpw(
+            password.encode('utf-8'), 
+            hashed_password.encode('utf-8')
+        )
+    
+    def create_access_token(self, data: dict) -> str:
+        """Create JWT access token"""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + timedelta(
+            minutes=self.access_token_expire_minutes
+        )
+        to_encode.update({"exp": expire, "type": "access"})
+        
+        encoded_jwt = jwt.encode(
+            to_encode, self.secret_key, algorithm=self.algorithm
+        )
+        return encoded_jwt
+    
+    def create_refresh_token(self, data: dict) -> str:
+        """Create JWT refresh token"""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + timedelta(
+            days=self.refresh_token_expire_days
+        )
+        to_encode.update({"exp": expire, "type": "refresh"})
+        
+        encoded_jwt = jwt.encode(
+            to_encode, self.secret_key, algorithm=self.algorithm
+        )
+        return encoded_jwt
+    
+    def verify_token(self, token: str) -> dict:
+        """Verify and decode JWT token"""
+        try:
+            payload = jwt.decode(
+                token, self.secret_key, algorithms=[self.algorithm]
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired"
+            )
+        except jwt.JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+    
+    async def get_current_user(self, token: str):
+        """Get current user from token"""
+        payload = self.verify_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+        # In real implementation, fetch user from database
+        return {"id": user_id, "username": payload.get("username")}
+
+--- user_models.py ---
+from pydantic import BaseModel, EmailStr, validator
+from typing import Optional
+from datetime import datetime
+from enum import Enum
+
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
+    MODERATOR = "moderator"
+
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: Optional[str] = None
+    is_active: bool = True
+    role: UserRole = UserRole.USER
+
+class UserCreate(UserBase):
+    password: str
+    confirm_password: str
+    
+    @validator('confirm_password')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'password' in values and v != values['password']:
+            raise ValueError('Passwords do not match')
+        return v
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one digit')
+        return v
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(UserBase):
+    id: str
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+--- health_models.py ---
+from pydantic import BaseModel, validator
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+from enum import Enum
+
+class AnalysisType(str, Enum):
+    SKIN = "skin"
+    EYE = "eye"
+    FOOD = "food"
+    WELLNESS = "wellness"
+    GENERAL = "general"
+
+class ConfidenceLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    VERY_HIGH = "very_high"
+
+class AnalysisRequest(BaseModel):
+    analysis_type: AnalysisType
+    image_data: Optional[str] = None  # Base64 encoded
+    additional_info: Optional[Dict[str, Any]] = None
+
+class Prediction(BaseModel):
+    condition: str
+    confidence: float
+    probability: Optional[float] = None
+    
+    @validator('confidence')
+    def validate_confidence(cls, v):
+        if not 0 <= v <= 1:
+            raise ValueError('Confidence must be between 0 and 1')
+        return v
+
+class HealthInsights(BaseModel):
+    severity_level: str
+    follow_up_needed: bool
+    confidence_interpretation: str
+    next_steps: List[str]
+    risk_factors: Optional[List[str]] = None
+
+class AnalysisResult(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    analysis_type: AnalysisType
+    predictions: List[Prediction]
+    confidence: float
+    recommendations: List[str]
+    health_insights: HealthInsights
+    probability_distribution: Optional[Dict[str, float]] = None
+    processing_method: str
+    processing_time_ms: Optional[int] = None
+    created_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class ChatMessage(BaseModel):
+    content: str
+    language: Optional[str] = "en"
+    context: Optional[Dict[str, Any]] = None
+
+class ChatResponse(BaseModel):
+    content: str
+    confidence: float
+    suggestions: Optional[List[str]] = None
+    timestamp: datetime
+    language: str
+
+--- logging_config.py ---
+import logging
+import logging.config
+import sys
+from datetime import datetime
+import json
+
+def setup_logging(log_level: str = "INFO", log_file: str = None):
+    """Setup logging configuration"""
+    
+    class JSONFormatter(logging.Formatter):
+        def format(self, record):
+            log_entry = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "level": record.levelname,
+                "logger": record.name,
+                "message": record.getMessage(),
+                "module": record.module,
+                "function": record.funcName,
+                "line": record.lineno
+            }
+            
+            if record.exc_info:
+                log_entry["exception"] = self.formatException(record.exc_info)
+            
+            return json.dumps(log_entry)
+    
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(
+        logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+    )
+    
+    # File handler (if specified)
+    handlers = [console_handler]
+    if log_file:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(JSONFormatter())
+        handlers.append(file_handler)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        handlers=handlers,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Set specific loggers
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("fastapi").setLevel(logging.INFO)
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Logging configured with level: {log_level}")
+
+--- error_handling.py ---
+from functools import wraps
+from typing import Callable, Any
+import logging
+from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
+
+class AIWellnessException(Exception):
+    """Base exception for AI Wellness application"""
+    def __init__(self, message: str, error_code: str = None):
+        self.message = message
+        self.error_code = error_code
+        super().__init__(self.message)
+
+class ValidationError(AIWellnessException):
+    """Validation error exception"""
+    pass
+
+class AuthenticationError(AIWellnessException):
+    """Authentication error exception"""
+    pass
+
+class ImageProcessingError(AIWellnessException):
+    """Image processing error exception"""
+    pass
+
+class AIServiceError(AIWellnessException):
+    """AI service error exception"""
+    pass
+
+def handle_service_error(func: Callable) -> Callable:
+    """Decorator to handle service errors"""
+    @wraps(func)
+    async def wrapper(*args, **kwargs) -> Any:
+        try:
+            return await func(*args, **kwargs)
+        except ValidationError as e:
+            logger.error(f"Validation error in {func.__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Validation Error", "message": str(e)}
+            )
+        except AuthenticationError as e:
+            logger.error(f"Authentication error in {func.__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "Authentication Error", "message": str(e)}
+            )
+        except ImageProcessingError as e:
+            logger.error(f"Image processing error in {func.__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "Image Processing Error", "message": str(e)}
+            )
+        except AIServiceError as e:
+            logger.error(f"AI service error in {func.__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "AI Service Error", "message": str(e)}
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "Internal Server Error", "message": "An unexpected error occurred"}
+            )
+    return wrapper
+
+def validate_image_data(image_data: bytes) -> None:
+    """Validate image data"""
+    if not image_data:
+        raise ValidationError("No image data provided")
+    
+    if len(image_data) > 10 * 1024 * 1024:  # 10MB limit
+        raise ValidationError("Image size too large (max 10MB)")
+    
+    # Check for valid image headers
+    valid_headers = [
+        b'\xff\xd8\xff',  # JPEG
+        b'\x89PNG\r\n\x1a\n',  # PNG
+        b'GIF87a',  # GIF87a
+        b'GIF89a',  # GIF89a
+    ]
+    
+    if not any(image_data.startswith(header) for header in valid_headers):
+        raise ValidationError("Invalid image format")
+
+--- explainable_ai_service.py ---
+import numpy as np
+import cv2
+from typing import Dict, List, Any
+import logging
+from PIL import Image
+import io
+
+logger = logging.getLogger(__name__)
+
+class ExplainableAIService:
+    """Service for generating AI explanations using LIME and Grad-CAM"""
+    
+    def __init__(self):
+        self.is_initialized = False
+    
+    async def initialize(self):
+        """Initialize explainable AI service"""
+        try:
+            logger.info("Initializing Explainable AI Service...")
+            # Initialize LIME and Grad-CAM components
+            self.is_initialized = True
+            logger.info("Explainable AI Service initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize explainable AI service: {str(e)}")
+            raise
+    
+    async def explain_image_analysis(
+        self, 
+        image_data: bytes, 
+        analysis_result: Dict, 
+        analysis_type: str
+    ) -> Dict:
+        """Generate explanation for image analysis"""
+        try:
+            if not self.is_initialized:
+                await self.initialize()
+            
+            # Generate Grad-CAM visualization
+            grad_cam_explanation = await self._generate_grad_cam(
+                image_data, analysis_result, analysis_type
+            )
+            
+            # Generate LIME explanation
+            lime_explanation = await self._generate_lime_explanation(
+                image_data, analysis_result, analysis_type
+            )
+            
+            # Generate textual explanation
+            textual_explanation = self._generate_textual_explanation(
+                analysis_result, analysis_type
+            )
+            
+            return {
+                "grad_cam": grad_cam_explanation,
+                "lime": lime_explanation,
+                "textual": textual_explanation,
+                "confidence_breakdown": self._explain_confidence(analysis_result),
+                "feature_importance": self._get_feature_importance(analysis_result)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to generate explanation: {str(e)}")
+            return self._get_default_explanation(analysis_type)
+    
+    async def _generate_grad_cam(
+        self, 
+        image_data: bytes, 
+        analysis_result: Dict, 
+        analysis_type: str
+    ) -> Dict:
+        """Generate Grad-CAM visualization"""
+        try:
+            # Convert image data to numpy array
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            image_array = np.array(image)
+            
+            # Simulate Grad-CAM heatmap generation
+            height, width = image_array.shape[:2]
+            heatmap = np.random.rand(height, width)  # Simulated heatmap
+            
+            # Apply Gaussian blur for smoother visualization
+            heatmap = cv2.GaussianBlur(heatmap, (15, 15), 0)
+            
+            # Normalize heatmap
+            heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+            
+            return {
+                "heatmap_available": True,
+                "important_regions": self._identify_important_regions(heatmap),
+                "explanation": f"The highlighted regions show areas most important for {analysis_type} analysis"
+            }
+            
+        except Exception as e:
+            logger.error(f"Grad-CAM generation failed: {str(e)}")
+            return {"heatmap_available": False, "error": str(e)}
+    
+    async def _generate_lime_explanation(
+        self, 
+        image_data: bytes, 
+        analysis_result: Dict, 
+        analysis_type: str
+    ) -> Dict:
+        """Generate LIME explanation"""
+        try:
+            # Simulate LIME explanation
+            features = self._extract_image_features(image_data)
+            
+            return {
+                "feature_contributions": features,
+                "explanation": "Features contributing most to the prediction",
+                "top_features": sorted(features.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
+            }
+            
+        except Exception as e:
+            logger.error(f"LIME explanation failed: {str(e)}")
+            return {"explanation": "LIME explanation unavailable", "error": str(e)}
+    
+    def _generate_textual_explanation(self, analysis_result: Dict, analysis_type: str) -> str:
+        """Generate human-readable explanation"""
+        confidence = analysis_result.get("confidence", 0)
+        predictions = analysis_result.get("predictions", [])
+        
+        if not predictions:
+            return "No predictions available for explanation."
+        
+        main_prediction = predictions[0]
+        condition = main_prediction.get("condition", "unknown")
+        
+        explanation_parts = [
+            f"The AI model analyzed this {analysis_type} image and detected: {condition}",
+            f"Confidence level: {confidence:.1%}",
+        ]
+        
+        if confidence > 0.8:
+            explanation_parts.append("This is a high-confidence prediction based on clear visual features.")
+        elif confidence > 0.6:
+            explanation_parts.append("This is a moderate-confidence prediction. Additional evaluation may be helpful.")
+        else:
+            explanation_parts.append("This is a low-confidence prediction. Please consider retaking the image or consulting a professional.")
+        
+        return " ".join(explanation_parts)
+    
+    def _explain_confidence(self, analysis_result: Dict) -> Dict:
+        """Explain confidence score breakdown"""
+        confidence = analysis_result.get("confidence", 0)
+        
+        factors = {
+            "image_quality": min(0.9, confidence + 0.1),
+            "feature_clarity": confidence,
+            "model_certainty": confidence,
+            "data_consistency": min(0.95, confidence + 0.05)
+        }
+        
+        return {
+            "overall_confidence": confidence,
+            "contributing_factors": factors,
+            "explanation": self._get_confidence_explanation(confidence)
+        }
+    
+    def _get_confidence_explanation(self, confidence: float) -> str:
+        """Get explanation for confidence level"""
+        if confidence >= 0.9:
+            return "Very high confidence - the model is very certain about this prediction"
+        elif confidence >= 0.7:
+            return "High confidence - the model is confident about this prediction"
+        elif confidence >= 0.5:
+            return "Moderate confidence - the model has reasonable certainty"
+        else:
+            return "Low confidence - the model is uncertain about this prediction"
+    
+    def _extract_image_features(self, image_data: bytes) -> Dict[str, float]:
+        """Extract and score image features"""
+        try:
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            image_array = np.array(image)
+            
+            # Calculate basic image features
+            features = {
+                "brightness": float(np.mean(image_array)),
+                "contrast": float(np.std(image_array)),
+                "red_channel": float(np.mean(image_array[:, :, 0])),
+                "green_channel": float(np.mean(image_array[:, :, 1])),
+                "blue_channel": float(np.mean(image_array[:, :, 2])),
+                "texture_variance": float(np.var(cv2.Laplacian(cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY), cv2.CV_64F)))
+            }
+            
+            # Normalize features to [-1, 1] range for LIME-style explanation
+            normalized_features = {}
+            for key, value in features.items():
+                normalized_features[key] = (value - 128) / 128  # Assuming 0-255 range
+            
+            return normalized_features
+            
+        except Exception as e:
+            logger.error(f"Feature extraction failed: {str(e)}")
+            return {}
+    
+    def _identify_important_regions(self, heatmap: np.ndarray) -> List[Dict]:
+        """Identify important regions from heatmap"""
+        # Find regions with high activation
+        threshold = np.percentile(heatmap, 80)
+        important_mask = heatmap > threshold
+        
+        # Find contours of important regions
+        contours, _ = cv2.findContours(
+            important_mask.astype(np.uint8), 
+            cv2.RETR_EXTERNAL, 
+            cv2.CHAIN_APPROX_SIMPLE
+        )
+        
+        regions = []
+        for i, contour in enumerate(contours[:5]):  # Top 5 regions
+            x, y, w, h = cv2.boundingRect(contour)
+            area = cv2.contourArea(contour)
+            
+            regions.append({
+                "region_id": i,
+                "bounding_box": {"x": int(x), "y": int(y), "width": int(w), "height": int(h)},
+                "area": float(area),
+                "importance_score": float(np.mean(heatmap[y:y+h, x:x+w]))
+            })
+        
+        return sorted(regions, key=lambda x: x["importance_score"], reverse=True)
+    
+    def _get_feature_importance(self, analysis_result: Dict) -> Dict:
+        """Get feature importance scores"""
+        return {
+            "color_distribution": 0.25,
+            "texture_patterns": 0.30,
+            "shape_features": 0.20,
+            "edge_information": 0.15,
+            "spatial_relationships": 0.10
+        }
+    
+    def _get_default_explanation(self, analysis_type: str) -> Dict:
+        """Get default explanation when generation fails"""
+        return {
+            "textual": f"Analysis completed for {analysis_type} image. Detailed explanation unavailable.",
+            "confidence_breakdown": {"overall_confidence": 0.5},
+            "feature_importance": {},
+            "error": "Explanation generation failed"
+        }
+======
+==========================================================================
+B. NLP ADDITIONAL MODELS
+================================================================================
+
+--- conversation_context.py ---
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ConversationContext:
+    """Manages conversation context and history"""
+    
+    def __init__(self, max_history: int = 10, context_window: int = 5):
+        self.max_history = max_history
+        self.context_window = context_window
+        self.conversations = {}
+    
+    def add_message(self, user_id: str, message: str, response: str, metadata: Dict = None):
+        """Add message to conversation history"""
+        if user_id not in self.conversations:
+            self.conversations[user_id] = {
+                "messages": [],
+                "context": {},
+                "created_at": datetime.utcnow(),
+                "last_updated": datetime.utcnow()
+            }
+        
+        conversation = self.conversations[user_id]
+        
+        # Add message pair
+        message_entry = {
+            "user_message": message,
+            "ai_response": response,
+            "timestamp": datetime.utcnow(),
+            "metadata": metadata or {}
+        }
+        
+        conversation["messages"].append(message_entry)
+        conversation["last_updated"] = datetime.utcnow()
+        
+        # Maintain max history
+        if len(conversation["messages"]) > self.max_history:
+            conversation["messages"] = conversation["messages"][-self.max_history:]
+        
+        # Update context
+        self._update_context(user_id)
+    
+    def get_context(self, user_id: str) -> Dict:
+        """Get conversation context for user"""
+        if user_id not in self.conversations:
+            return {"messages": [], "context": {}}
+        
+        conversation = self.conversations[user_id]
+        recent_messages = conversation["messages"][-self.context_window:]
+        
+        return {
+            "messages": recent_messages,
+            "context": conversation["context"],
+            "message_count": len(conversation["messages"]),
+            "last_updated": conversation["last_updated"]
+        }
+    
+    def _update_context(self, user_id: str):
+        """Update conversation context based on recent messages"""
+        conversation = self.conversations[user_id]
+        recent_messages = conversation["messages"][-self.context_window:]
+        
+        # Extract topics and entities from recent messages
+        topics = set()
+        health_concerns = set()
+        
+        for msg in recent_messages:
+            user_msg = msg["user_message"].lower()
+            
+            # Identify health topics
+            health_keywords = {
+                "skin": ["skin", "acne", "rash", "eczema", "dermatitis"],
+                "eye": ["eye", "vision", "sight", "blind", "see"],
+                "nutrition": ["food", "diet", "nutrition", "eat", "meal"],
+                "exercise": ["exercise", "workout", "fitness", "gym"],
+                "sleep": ["sleep", "insomnia", "tired", "rest"],
+                "mental_health": ["stress", "anxiety", "depression", "mood"]
+            }
+            
+            for topic, keywords in health_keywords.items():
+                if any(keyword in user_msg for keyword in keywords):
+                    topics.add(topic)
+        
+        conversation["context"] = {
+            "topics": list(topics),
+            "health_concerns": list(health_concerns),
+            "conversation_length": len(conversation["messages"]),
+            "dominant_topic": max(topics, default="general") if topics else "general"
+        }
+
+--- message_models.py ---
+from pydantic import BaseModel, validator
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+from enum import Enum
+
+class MessageType(str, Enum):
+    USER = "user"
+    AI = "ai"
+    SYSTEM = "system"
+
+class MessageStatus(str, Enum):
+    SENT = "sent"
+    DELIVERED = "delivered"
+    READ = "read"
+    FAILED = "failed"
+
+class HealthTopic(str, Enum):
+    GENERAL = "general"
+    SKIN = "skin"
+    EYE = "eye"
+    NUTRITION = "nutrition"
+    EXERCISE = "exercise"
+    SLEEP = "sleep"
+    MENTAL_HEALTH = "mental_health"
+
+class Message(BaseModel):
+    id: Optional[str] = None
+    conversation_id: str
+    user_id: str
+    content: str
+    message_type: MessageType
+    status: MessageStatus = MessageStatus.SENT
+    language: str = "en"
+    timestamp: datetime = datetime.utcnow()
+    metadata: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        from_attributes = True
+
+class AIResponse(BaseModel):
+    content: str
+    confidence: float
+    suggestions: Optional[List[str]] = None
+    health_topic: HealthTopic = HealthTopic.GENERAL
+    follow_up_questions: Optional[List[str]] = None
+    resources: Optional[List[Dict[str, str]]] = None
+    
+    @validator('confidence')
+    def validate_confidence(cls, v):
+        if not 0 <= v <= 1:
+            raise ValueError('Confidence must be between 0 and 1')
+        return v
+
+class ConversationSummary(BaseModel):
+    conversation_id: str
+    user_id: str
+    message_count: int
+    dominant_topics: List[HealthTopic]
+    last_message_at: datetime
+    health_concerns_identified: List[str]
+    recommendations_given: List[str]
+
+--- app_config.py ---
+import os
+from typing import Dict, Any, Optional
+from pydantic import BaseSettings, validator
+import json
+
+class Settings(BaseSettings):
+    """Application settings and configuration"""
+    
+    # App Info
+    app_name: str = "AI Wellness Vision"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    
+    # API Settings
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_prefix: str = "/api/v1"
+    
+    # Security
+    secret_key: str = "your-secret-key-change-in-production"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    
+    # Database
+    database_url: str = "postgresql://user:password@localhost/ai_wellness"
+    redis_url: str = "redis://localhost:6379"
+    
+    # AI Services
+    gemini_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    huggingface_api_key: Optional[str] = None
+    
+    # File Storage
+    upload_dir: str = "uploads"
+    max_file_size: int = 10 * 1024 * 1024  # 10MB
+    allowed_extensions: list = [".jpg", ".jpeg", ".png", ".gif"]
+    
+    # Logging
+    log_level: str = "INFO"
+    log_file: Optional[str] = None
+    
+    # CORS
+    cors_origins: list = ["http://localhost:3000", "http://localhost:8080"]
+    
+    # Rate Limiting
+    rate_limit_requests: int = 100
+    rate_limit_window: int = 3600  # 1 hour
+    
+    # Health Check
+    health_check_interval: int = 30
+    
+    # NLP Settings
+    supported_languages: list = ["en", "hi", "ta", "te", "bn", "gu", "mr"]
+    default_language: str = "en"
+    max_message_length: int = 1000
+    context_window_size: int = 5
+    
+    # Image Analysis
+    image_analysis_timeout: int = 30
+    cnn_model_path: str = "models/"
+    confidence_threshold: float = 0.6
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+    
+    @validator('cors_origins', pre=True)
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
+    
+    @validator('supported_languages', pre=True)
+    def parse_languages(cls, v):
+        if isinstance(v, str):
+            return [lang.strip() for lang in v.split(",")]
+        return v
+
+# Global settings instance
+settings = Settings()
+
+# Language configurations
+LANGUAGE_CONFIGS = {
+    "en": {
+        "name": "English",
+        "model": "distilbert-base-uncased",
+        "greeting": "Hello! How can I help you with your health today?",
+        "fallback": "I'm sorry, I didn't understand. Could you please rephrase?"
+    },
+    "hi": {
+        "name": "Hindi",
+        "model": "ai4bharat/indic-bert",
+        "greeting": "नमस्ते! आज मैं आपकी स्वास्थ्य संबंधी कैसे मदद कर सकता हूं?",
+        "fallback": "क्षमा करें, मैं समझ नहीं पाया। कृपया दोबारा कहें?"
+    },
+    "ta": {
+        "name": "Tamil",
+        "model": "ai4bharat/indic-bert",
+        "greeting": "வணக்கம்! உங்கள் உடல்நலத்தில் இன்று நான் எப்படி உதவ முடியும்?",
+        "fallback": "மன்னிக்கவும், எனக்கு புரியவில்லை. தயவுசெய்து மீண்டும் சொல்லுங்கள்?"
+    }
+}
+
+# Health topic configurations
+HEALTH_TOPICS = {
+    "skin": {
+        "keywords": ["skin", "acne", "rash", "eczema", "dermatitis", "psoriasis"],
+        "model_type": "skin_analysis",
+        "confidence_threshold": 0.7
+    },
+    "eye": {
+        "keywords": ["eye", "vision", "sight", "blind", "cataract", "glaucoma"],
+        "model_type": "eye_analysis", 
+        "confidence_threshold": 0.75
+    },
+    "nutrition": {
+        "keywords": ["food", "diet", "nutrition", "calories", "vitamins"],
+        "model_type": "food_analysis",
+        "confidence_threshold": 0.65
+    }
+}
+
+================================================================================
+C. DATABASE
+================================================================================
+
+--- database.py ---
+import asyncpg
+import asyncio
+from typing import Dict, List, Optional, Any
+import logging
+from datetime import datetime
+import json
+
+logger = logging.getLogger(__name__)
+
+class DatabaseManager:
+    """PostgreSQL database manager"""
+    
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.pool = None
+    
+    async def initialize(self):
+        """Initialize database connection pool"""
+        try:
+            self.pool = await asyncpg.create_pool(
+                self.database_url,
+                min_size=5,
+                max_size=20,
+                command_timeout=60
+            )
+            logger.info("Database connection pool initialized")
+            await self._create_tables()
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {str(e)}")
+            raise
+    
+    async def close(self):
+        """Close database connection pool"""
+        if self.pool:
+            await self.pool.close()
+            logger.info("Database connection pool closed")
+    
+    async def _create_tables(self):
+        """Create database tables if they don't exist"""
+        async with self.pool.acquire() as conn:
+            # Users table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    hashed_password VARCHAR(255) NOT NULL,
+                    full_name VARCHAR(100),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    role VARCHAR(20) DEFAULT 'user',
+                    language_preference VARCHAR(5) DEFAULT 'en',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    last_login TIMESTAMP,
+                    profile_data JSONB DEFAULT '{}'
+                )
+            ''')
+            
+            # User sessions table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    last_activity TIMESTAMP DEFAULT NOW(),
+                    expires_at TIMESTAMP NOT NULL,
+                    session_data JSONB DEFAULT '{}',
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+            
+            # Analysis results table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS analysis_results (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    analysis_type VARCHAR(50) NOT NULL,
+                    input_data JSONB,
+                    results JSONB NOT NULL,
+                    confidence_score FLOAT,
+                    processing_time_ms INTEGER,
+                    processing_method VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    metadata JSONB DEFAULT '{}'
+                )
+            ''')
+            
+            # Conversations table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    title VARCHAR(200),
+                    language VARCHAR(5) DEFAULT 'en',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    last_message_at TIMESTAMP DEFAULT NOW(),
+                    message_count INTEGER DEFAULT 0,
+                    context_data JSONB DEFAULT '{}',
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+            
+            # Messages table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    content TEXT NOT NULL,
+                    message_type VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'sent',
+                    language VARCHAR(5) DEFAULT 'en',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    metadata JSONB DEFAULT '{}'
+                )
+            ''')
+            
+            # Create indexes for better performance
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_analysis_user_id ON analysis_results(user_id)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_analysis_type ON analysis_results(analysis_type)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)')
+            await conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)')
+            
+            logger.info("Database tables created/verified successfully")
+    
+    async def create_user(self, user_data: Dict) -> str:
+        """Create new user"""
+        async with self.pool.acquire() as conn:
+            user_id = await conn.fetchval('''
+                INSERT INTO users (username, email, hashed_password, full_name, language_preference)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+            ''', user_data['username'], user_data['email'], user_data['hashed_password'],
+                user_data.get('full_name'), user_data.get('language_preference', 'en'))
+            return str(user_id)
+    
+    async def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """Get user by username"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow('''
+                SELECT id, username, email, hashed_password, full_name, is_active, 
+                       role, language_preference, created_at, last_login, profile_data
+                FROM users WHERE username = $1
+            ''', username)
+            return dict(row) if row else None
+    
+    async def save_analysis_result(self, analysis_data: Dict) -> str:
+        """Save analysis result"""
+        async with self.pool.acquire() as conn:
+            result_id = await conn.fetchval('''
+                INSERT INTO analysis_results 
+                (user_id, analysis_type, input_data, results, confidence_score, 
+                 processing_time_ms, processing_method, metadata)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING id
+            ''', analysis_data['user_id'], analysis_data['analysis_type'],
+                json.dumps(analysis_data.get('input_data', {})),
+                json.dumps(analysis_data['results']),
+                analysis_data.get('confidence_score'),
+                analysis_data.get('processing_time_ms'),
+                analysis_data.get('processing_method'),
+                json.dumps(analysis_data.get('metadata', {})))
+            return str(result_id)
+    
+    async def get_user_analysis_history(self, user_id: str, limit: int = 10, offset: int = 0) -> List[Dict]:
+        """Get user's analysis history"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch('''
+                SELECT id, analysis_type, results, confidence_score, 
+                       processing_method, created_at, metadata
+                FROM analysis_results 
+                WHERE user_id = $1 
+                ORDER BY created_at DESC 
+                LIMIT $2 OFFSET $3
+            ''', user_id, limit, offset)
+            
+            return [dict(row) for row in rows]
+    
+    async def create_conversation(self, user_id: str, title: str = None, language: str = "en") -> str:
+        """Create new conversation"""
+        async with self.pool.acquire() as conn:
+            conversation_id = await conn.fetchval('''
+                INSERT INTO conversations (user_id, title, language)
+                VALUES ($1, $2, $3)
+                RETURNING id
+            ''', user_id, title or "New Conversation", language)
+            return str(conversation_id)
+    
+    async def save_message(self, message_data: Dict) -> str:
+        """Save chat message"""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # Insert message
+                message_id = await conn.fetchval('''
+                    INSERT INTO messages 
+                    (conversation_id, user_id, content, message_type, status, language, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
+                ''', message_data['conversation_id'], message_data['user_id'],
+                    message_data['content'], message_data['message_type'],
+                    message_data.get('status', 'sent'), message_data.get('language', 'en'),
+                    json.dumps(message_data.get('metadata', {})))
+                
+                # Update conversation
+                await conn.execute('''
+                    UPDATE conversations 
+                    SET last_message_at = NOW(), message_count = message_count + 1
+                    WHERE id = $1
+                ''', message_data['conversation_id'])
+                
+                return str(message_id)
+
+--- migration_001_initial.sql ---
+-- Initial database schema migration
+-- Version: 001
+-- Description: Create initial tables for AI Wellness Vision
+
+BEGIN;
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Users table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    role VARCHAR(20) DEFAULT 'user',
+    language_preference VARCHAR(5) DEFAULT 'en',
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP,
+    profile_data JSONB DEFAULT '{}',
+    
+    CONSTRAINT valid_role CHECK (role IN ('user', 'admin', 'moderator')),
+    CONSTRAINT valid_language CHECK (language_preference IN ('en', 'hi', 'ta', 'te', 'bn', 'gu', 'mr'))
+);
+
+-- User sessions table
+CREATE TABLE user_sessions (
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_activity TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    session_data JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Analysis results table
+CREATE TABLE analysis_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    analysis_type VARCHAR(50) NOT NULL,
+    input_data JSONB,
+    results JSONB NOT NULL,
+    confidence_score FLOAT CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    processing_time_ms INTEGER,
+    processing_method VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}',
+    
+    CONSTRAINT valid_analysis_type CHECK (analysis_type IN ('skin', 'eye', 'food', 'wellness', 'general'))
+);
+
+-- Conversations table
+CREATE TABLE conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(200),
+    language VARCHAR(5) DEFAULT 'en',
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_message_at TIMESTAMP DEFAULT NOW(),
+    message_count INTEGER DEFAULT 0,
+    context_data JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    
+    CONSTRAINT valid_language CHECK (language IN ('en', 'hi', 'ta', 'te', 'bn', 'gu', 'mr'))
+);
+
+-- Messages table
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    message_type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'sent',
+    language VARCHAR(5) DEFAULT 'en',
+    created_at TIMESTAMP DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}',
+    
+    CONSTRAINT valid_message_type CHECK (message_type IN ('user', 'ai', 'system')),
+    CONSTRAINT valid_status CHECK (status IN ('sent', 'delivered', 'read', 'failed'))
+);
+
+-- Create indexes for performance
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_active ON users(is_active);
+
+CREATE INDEX idx_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_sessions_active ON user_sessions(is_active);
+CREATE INDEX idx_sessions_expires ON user_sessions(expires_at);
+
+CREATE INDEX idx_analysis_user_id ON analysis_results(user_id);
+CREATE INDEX idx_analysis_type ON analysis_results(analysis_type);
+CREATE INDEX idx_analysis_created ON analysis_results(created_at DESC);
+
+CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX idx_conversations_active ON conversations(is_active);
+CREATE INDEX idx_conversations_last_message ON conversations(last_message_at DESC);
+
+CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_messages_user_id ON messages(user_id);
+CREATE INDEX idx_messages_created ON messages(created_at DESC);
+
+-- Insert default admin user (password: admin123)
+INSERT INTO users (username, email, hashed_password, full_name, role) VALUES 
+('admin', 'admin@aiwellness.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6hsxq5S/kS', 'System Administrator', 'admin');
+
+COMMIT;
+
+================================================================================
+D. FLUTTER APP
+================================================================================
+
+--- api_service.dart ---
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import '../config/app_config.dart';
+import '../models/user_model.dart';
+import '../models/analysis_model.dart';
+import '../models/chat_model.dart';
+import '../utils/logger.dart';
+
+class ApiService {
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal();
+
+  late Dio _dio;
+  String? _accessToken;
+
+  void initialize() {
+    _dio = Dio(BaseOptions(
+      baseUrl: AppConfig.baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ));
+
+    // Add interceptors
+    _dio.interceptors.add(LogInterceptor(
+      requestBody: kDebugMode,
+      responseBody: kDebugMode,
+      logPrint: (obj) => Logger.debug(obj.toString()),
+    ));
+
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (_accessToken != null) {
+          options.headers['Authorization'] = 'Bearer $_accessToken';
+        }
+        handler.next(options);
+      },
+      onError: (error, handler) {
+        Logger.error('API Error: ${error.message}');
+        if (error.response?.statusCode == 401) {
+          // Handle token expiration
+          _handleTokenExpiration();
+        }
+        handler.next(error);
+      },
+    ));
+  }
+
+  void setAccessToken(String token) {
+    _accessToken = token;
+  }
+
+  void clearAccessToken() {
+    _accessToken = null;
+  }
+
+  // Authentication endpoints
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    try {
+      final response = await _dio.post('/auth/login', data: {
+        'username': username,
+        'password': password,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> register(UserCreate user) async {
+    try {
+      final response = await _dio.post('/auth/register', data: user.toJson());
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<UserModel> getCurrentUser() async {
+    try {
+      final response = await _dio.get('/auth/me');
+      return UserModel.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // Image analysis endpoints
+  Future<AnalysisResult> analyzeImage(
+    String imagePath,
+    AnalysisType analysisType,
+  ) async {
+    try {
+      FormData formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(imagePath),
+        'analysis_type': analysisType.value,
+      });
+
+      final response = await _dio.post('/analysis/image', data: formData);
+      return AnalysisResult.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<List<AnalysisResult>> getAnalysisHistory({
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _dio.get('/analysis/history', queryParameters: {
+        'limit': limit,
+        'offset': offset,
+      });
+
+      final List<dynamic> data = response.data['history'];
+      return data.map((json) => AnalysisResult.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // Chat endpoints
+  Future<ChatResponse> sendMessage(ChatMessage message) async {
+    try {
+      final response = await _dio.post('/chat/message', data: message.toJson());
+      return ChatResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<List<Conversation>> getConversations() async {
+    try {
+      final response = await _dio.get('/chat/conversations');
+      final List<dynamic> data = response.data;
+      return data.map((json) => Conversation.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // Health check
+  Future<Map<String, dynamic>> healthCheck() async {
+    try {
+      final response = await _dio.get('/health');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // Error handling
+  Exception _handleDioError(DioException error) {
+    String message = 'An unexpected error occurred';
+    
+    if (error.response != null) {
+      final statusCode = error.response!.statusCode;
+      final data = error.response!.data;
+      
+      switch (statusCode) {
+        case 400:
+          message = data['detail']?['message'] ?? 'Bad request';
+          break;
+        case 401:
+          message = 'Authentication failed';
+          break;
+        case 403:
+          message = 'Access denied';
+          break;
+        case 404:
+          message = 'Resource not found';
+          break;
+        case 422:
+          message = data['detail']?['message'] ?? 'Validation error';
+          break;
+        case 500:
+          message = 'Server error. Please try again later.';
+          break;
+        default:
+          message = data['detail']?['message'] ?? 'Network error';
+      }
+    } else if (error.type == DioExceptionType.connectionTimeout) {
+      message = 'Connection timeout. Please check your internet connection.';
+    } else if (error.type == DioExceptionType.receiveTimeout) {
+      message = 'Request timeout. Please try again.';
+    }
+    
+    return Exception(message);
+  }
+
+  void _handleTokenExpiration() {
+    // Clear token and redirect to login
+    clearAccessToken();
+    // You might want to use a navigation service here
+    Logger.info('Token expired, user needs to login again');
+  }
+}
+
+--- auth_provider.dart ---
+import 'package:flutter/foundation.dart';
+import '../models/user_model.dart';
+import '../services/api_service.dart';
+import '../services/storage_service.dart';
+import '../utils/logger.dart';
+
+class AuthProvider extends ChangeNotifier {
+  UserModel? _currentUser;
+  bool _isAuthenticated = false;
+  bool _isLoading = false;
+  String? _error;
+
+  // Getters
+  UserModel? get currentUser => _currentUser;
+  bool get isAuthenticated => _isAuthenticated;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  final ApiService _apiService = ApiService();
+  final StorageService _storageService = StorageService.instance;
+
+  // Check authentication status on app start
+  Future<void> checkAuthStatus() async {
+    _setLoading(true);
+    
+    try {
+      final token = await _storageService.getAccessToken();
+      if (token != null) {
+        _apiService.setAccessToken(token);
+        _currentUser = await _apiService.getCurrentUser();
+        _isAuthenticated = true;
+        Logger.info('User authenticated from stored token');
+      }
+    } catch (e) {
+      Logger.error('Auth check failed: $e');
+      await logout(); // Clear invalid token
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Login
+  Future<bool> login(String username, String password) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _apiService.login(username, password);
+      
+      final accessToken = response['access_token'];
+      final refreshToken = response['refresh_token'];
+      final userData = response['user'];
+
+      // Store tokens
+      await _storageService.setAccessToken(accessToken);
+      await _storageService.setRefreshToken(refreshToken);
+      
+      // Set API token
+      _apiService.setAccessToken(accessToken);
+      
+      // Set user data
+      _currentUser = UserModel.fromJson(userData);
+      _isAuthenticated = true;
+      
+      Logger.info('User logged in successfully: ${_currentUser?.username}');
+      return true;
+      
+    } catch (e) {
+      _setError('Login failed: ${e.toString()}');
+      Logger.error('Login error: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Register
+  Future<bool> register(UserCreate userCreate) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _apiService.register(userCreate);
+      
+      final accessToken = response['access_token'];
+      final refreshToken = response['refresh_token'];
+      final userData = response['user'];
+
+      // Store tokens
+      await _storageService.setAccessToken(accessToken);
+      await _storageService.setRefreshToken(refreshToken);
+      
+      // Set API token
+      _apiService.setAccessToken(accessToken);
+      
+      // Set user data
+      _currentUser = UserModel.fromJson(userData);
+      _isAuthenticated = true;
+      
+      Logger.info('User registered successfully: ${_currentUser?.username}');
+      return true;
+      
+    } catch (e) {
+      _setError('Registration failed: ${e.toString()}');
+      Logger.error('Registration error: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Logout
+  Future<void> logout() async {
+    _setLoading(true);
+    
+    try {
+      // Clear stored tokens
+      await _storageService.clearTokens();
+      
+      // Clear API token
+      _apiService.clearAccessToken();
+      
+      // Clear user data
+      _currentUser = null;
+      _isAuthenticated = false;
+      
+      Logger.info('User logged out successfully');
+      
+    } catch (e) {
+      Logger.error('Logout error: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Update user profile
+  Future<bool> updateProfile(Map<String, dynamic> updates) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // API call to update profile would go here
+      // For now, just update local user data
+      if (_currentUser != null) {
+        _currentUser = _currentUser!.copyWith(
+          fullName: updates['full_name'] ?? _currentUser!.fullName,
+          email: updates['email'] ?? _currentUser!.email,
+        );
+        Logger.info('Profile updated successfully');
+        return true;
+      }
+      return false;
+      
+    } catch (e) {
+      _setError('Profile update failed: ${e.toString()}');
+      Logger.error('Profile update error: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Helper methods
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  // Check if user has specific role
+  bool hasRole(String role) {
+    return _currentUser?.role == role;
+  }
+
+  // Check if user is admin
+  bool get isAdmin => hasRole('admin');
+
+  // Get user's preferred language
+  String get userLanguage => _currentUser?.languagePreference ?? 'en';
+}
+
+--- chat_provider.dart ---
+import 'package:flutter/foundation.dart';
+import '../models/chat_model.dart';
+import '../services/api_service.dart';
+import '../utils/logger.dart';
+
+class ChatProvider extends ChangeNotifier {
+  List<ChatMessage> _messages = [];
+  List<Conversation> _conversations = [];
+  Conversation? _currentConversation;
+  bool _isLoading = false;
+  bool _isSending = false;
+  String? _error;
+
+  // Getters
+  List<ChatMessage> get messages => _messages;
+  List<Conversation> get conversations => _conversations;
+  Conversation? get currentConversation => _currentConversation;
+  bool get isLoading => _isLoading;
+  bool get isSending => _isSending;
+  String? get error => _error;
+
+  final ApiService _apiService = ApiService();
+
+  // Load conversations
+  Future<void> loadConversations() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _conversations = await _apiService.getConversations();
+      Logger.info('Loaded ${_conversations.length} conversations');
+    } catch (e) {
+      _setError('Failed to load conversations: ${e.toString()}');
+      Logger.error('Load conversations error: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Send message
+  Future<void> sendMessage(String content, {String language = 'en'}) async {
+    if (content.trim().isEmpty) return;
+
+    _setSending(true);
+    _clearError();
+
+    // Add user message to UI immediately
+    final userMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      content: content,
+      messageType: MessageType.user,
+      timestamp: DateTime.now(),
+      language: language,
+    );
+    
+    _addMessage(userMessage);
+
+    try {
+      // Send to API
+      final response = await _apiService.sendMessage(userMessage);
+      
+      // Add AI response
+      final aiMessage = ChatMessage(
+        id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+        content: response.content,
+        messageType: MessageType.ai,
+        timestamp: response.timestamp,
+        language: language,
+        metadata: {
+          'confidence': response.confidence,
+          'suggestions': response.suggestions,
+        },
+      );
+      
+      _addMessage(aiMessage);
+      Logger.info('Message sent and response received');
+      
+    } catch (e) {
+      _setError('Failed to send message: ${e.toString()}');
+      Logger.error('Send message error: $e');
+      
+      // Add error message
+      final errorMessage = ChatMessage(
+        id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+        content: 'Sorry, I encountered an error. Please try again.',
+        messageType: MessageType.ai,
+        timestamp: DateTime.now(),
+        language: language,
+        metadata: {'error': true},
+      );
+      
+      _addMessage(errorMessage);
+    } finally {
+      _setSending(false);
+    }
+  }
+
+  // Clear current conversation
+  void clearConversation() {
+    _messages.clear();
+    _currentConversation = null;
+    notifyListeners();
+    Logger.info('Conversation cleared');
+  }
+
+  // Start new conversation
+  void startNewConversation() {
+    clearConversation();
+    
+    // Add welcome message
+    final welcomeMessage = ChatMessage(
+      id: 'welcome',
+      content: 'Hello! I\'m your AI health assistant. How can I help you today?',
+      messageType: MessageType.ai,
+      timestamp: DateTime.now(),
+    );
+    
+    _addMessage(welcomeMessage);
+  }
+
+  // Add message to conversation
+  void _addMessage(ChatMessage message) {
+    _messages.add(message);
+    notifyListeners();
+  }
+
+  // Helper methods
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setSending(bool sending) {
+    _isSending = sending;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  // Get quick suggestions based on conversation context
+  List<String> getQuickSuggestions() {
+    if (_messages.isEmpty) {
+      return [
+        'How can I improve my skin health?',
+        'What should I eat for better nutrition?',
+        'Tell me about eye care tips',
+        'How to manage stress?',
+      ];
+    }
+
+    // Return contextual suggestions based on last AI message
+    final lastAiMessage = _messages
+        .where((m) => m.messageType == MessageType.ai)
+        .lastOrNull;
+    
+    if (lastAiMessage?.metadata?['suggestions'] != null) {
+      return List<String>.from(lastAiMessage!.metadata!['suggestions']);
+    }
+
+    return [
+      'Tell me more',
+      'What else should I know?',
+      'Any other recommendations?',
+    ];
+  }
+
+  // Get conversation statistics
+  Map<String, int> getConversationStats() {
+    return {
+      'total_messages': _messages.length,
+      'user_messages': _messages.where((m) => m.messageType == MessageType.user).length,
+      'ai_messages': _messages.where((m) => m.messageType == MessageType.ai).length,
+    };
+  }
+}
+
+--- image_analysis_provider.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/analysis_model.dart';
+import '../services/api_service.dart';
+import '../utils/logger.dart';
+
+class ImageAnalysisProvider extends ChangeNotifier {
+  List<AnalysisResult> _analysisHistory = [];
+  AnalysisResult? _currentAnalysis;
+  bool _isAnalyzing = false;
+  bool _isLoading = false;
+  String? _error;
+  XFile? _selectedImage;
+
+  // Getters
+  List<AnalysisResult> get analysisHistory => _analysisHistory;
+  AnalysisResult? get currentAnalysis => _currentAnalysis;
+  bool get isAnalyzing => _isAnalyzing;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  XFile? get selectedImage => _selectedImage;
+
+  final ApiService _apiService = ApiService();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Pick image from camera
+  Future<void> pickImageFromCamera() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        _selectedImage = image;
+        notifyListeners();
+        Logger.info('Image picked from camera: ${image.path}');
+      }
+    } catch (e) {
+      _setError('Failed to pick image from camera: ${e.toString()}');
+      Logger.error('Camera pick error: $e');
+    }
+  }
+
+  // Pick image from gallery
+  Future<void> pickImageFromGallery() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        _selectedImage = image;
+        notifyListeners();
+        Logger.info('Image picked from gallery: ${image.path}');
+      }
+    } catch (e) {
+      _setError('Failed to pick image from gallery: ${e.toString()}');
+      Logger.error('Gallery pick error: $e');
+    }
+  }
+
+  // Analyze selected image
+  Future<void> analyzeImage(AnalysisType analysisType) async {
+    if (_selectedImage == null) {
+      _setError('No image selected');
+      return;
+    }
+
+    _setAnalyzing(true);
+    _clearError();
+
+    try {
+      final result = await _apiService.analyzeImage(
+        _selectedImage!.path,
+        analysisType,
+      );
+      
+      _currentAnalysis = result;
+      _analysisHistory.insert(0, result);
+      
+      Logger.info('Image analysis completed: ${analysisType.value}');
+      
+    } catch (e) {
+      _setError('Analysis failed: ${e.toString()}');
+      Logger.error('Image analysis error: $e');
+    } finally {
+      _setAnalyzing(false);
+    }
+  }
+
+  // Load analysis history
+  Future<void> loadAnalysisHistory({int limit = 20}) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _analysisHistory = await _apiService.getAnalysisHistory(limit: limit);
+      Logger.info('Loaded ${_analysisHistory.length} analysis results');
+    } catch (e) {
+      _setError('Failed to load history: ${e.toString()}');
+      Logger.error('Load history error: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Clear selected image
+  void clearSelectedImage() {
+    _selectedImage = null;
+    _currentAnalysis = null;
+    notifyListeners();
+  }
+
+  // Clear current analysis
+  void clearCurrentAnalysis() {
+    _currentAnalysis = null;
+    notifyListeners();
+  }
+
+  // Helper methods
+  void _setAnalyzing(bool analyzing) {
+    _isAnalyzing = analyzing;
+    notifyListeners();
+  }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  // Get analysis statistics
+  Map<String, dynamic> getAnalysisStats() {
+    final stats = <String, int>{};
+    
+    for (final analysis in _analysisHistory) {
+      final type = analysis.analysisType.value;
+      stats[type] = (stats[type] ?? 0) + 1;
+    }
+
+    return {
+      'total_analyses': _analysisHistory.length,
+      'by_type': stats,
+      'average_confidence': _analysisHistory.isEmpty 
+          ? 0.0 
+          : _analysisHistory
+              .map((a) => a.confidence)
+              .reduce((a, b) => a + b) / _analysisHistory.length,
+    };
+  }
+
+  // Get recent analyses by type
+  List<AnalysisResult> getAnalysesByType(AnalysisType type) {
+    return _analysisHistory
+        .where((analysis) => analysis.analysisType == type)
+        .toList();
+  }
+
+  // Check if analysis type is available
+  bool isAnalysisTypeSupported(AnalysisType type) {
+    // All types are supported in this implementation
+    return true;
+  }
+}

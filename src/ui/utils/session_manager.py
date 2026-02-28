@@ -59,34 +59,35 @@ class SessionManager:
     def authenticate(self, username: str, password: str) -> bool:
         """Authenticate user with credentials"""
         try:
-            # Import auth manager
-            from api.auth import auth_manager
+            # Simple demo authentication - replace with real auth in production
+            demo_users = {
+                "admin": {"password": "admin123", "email": "admin@wellnessvision.ai", "roles": ["admin", "user"]},
+                "testuser": {"password": "user123", "email": "test@wellnessvision.ai", "roles": ["user"]},
+                "demo": {"password": "demo", "email": "demo@wellnessvision.ai", "roles": ["user"]}
+            }
             
-            # Authenticate with backend
-            user = auth_manager.authenticate_user(username, password)
-            
-            if user:
-                # Create access token
-                access_token = auth_manager.create_access_token(user)
+            if username in demo_users and demo_users[username]["password"] == password:
+                user_data = demo_users[username]
                 
                 # Store user info in session
                 st.session_state.authenticated = True
                 st.session_state.user_info = {
-                    'username': user.username,
-                    'email': user.email,
-                    'roles': user.roles,
-                    'access_token': access_token
+                    'username': username,
+                    'email': user_data["email"],
+                    'roles': user_data["roles"],
+                    'access_token': f"demo_token_{username}"
                 }
                 st.session_state.last_activity = datetime.now()
                 
                 logger.info(f"User authenticated: {username}")
                 return True
+            else:
+                logger.warning(f"Authentication failed for user: {username}")
+                return False
             
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
-            st.error(f"Authentication failed: {str(e)}")
-        
-        return False
+            return False
     
     def logout(self):
         """Logout user and clear session"""

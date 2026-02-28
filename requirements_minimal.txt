@@ -1,0 +1,8 @@
+# Minimal requirements for running the backend
+fastapi
+uvicorn
+python-multipart
+pillow
+numpy
+streamlit
+requests

@@ -1,7 +1,7 @@
 # auth.py - Authentication component for Streamlit
 import streamlit as st
-from ui.utils.session_manager import SessionManager
-from ui.utils.theme_config import create_custom_component
+from src.ui.utils.session_manager import SessionManager
+from src.ui.utils.theme_config import create_custom_component
 
 def authentication_component():
     """Render authentication interface"""

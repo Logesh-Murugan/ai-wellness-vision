@@ -1,18 +1,42 @@
 # chat_interface_page.py - Chat interface with text and voice support
 import streamlit as st
 import time
-import asyncio
 from datetime import datetime
-from ui.utils.session_manager import SessionManager
-from ui.utils.theme_config import create_custom_component
+import random
+
+# Optional imports with fallbacks
+try:
+    from src.ui.utils.session_manager import SessionManager
+    from src.ui.utils.theme_config import create_custom_component
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    # Fallback functions
+    def create_custom_component(content, comp_type="card"):
+        return f'<div style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; margin: 0.5rem 0;">{content}</div>'
 
 def render():
     """Render the chat interface page"""
     
+    # Initialize session manager
+    if UTILS_AVAILABLE:
+        session_manager = SessionManager()
+    else:
+        # Mock session manager
+        class MockSessionManager:
+            def add_conversation(self, *args, **kwargs): pass
+            def get_session_id(self): return "demo_session"
+            def get_user_info(self): return {"username": "demo_user"}
+        session_manager = MockSessionManager()
+    
     st.title("💬 AI Health Assistant")
     st.markdown("Chat with our AI assistant for health guidance and support")
     
-    session_manager = SessionManager()
+    # Initialize chat history in session state
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = [
+            {"role": "assistant", "content": "Hello! I'm your AI health assistant. How can I help you today?"}
+        ]
     
     # Chat configuration
     col_config1, col_config2 = st.columns(2)
@@ -20,441 +44,232 @@ def render():
     with col_config1:
         language = st.selectbox(
             "Language",
-            options=["en", "hi", "ta", "te", "bn", "gu", "mr"],
+            ["en", "hi", "ta", "te", "bn", "gu", "mr"],
             format_func=lambda x: {
                 "en": "🇺🇸 English",
-                "hi": "🇮🇳 Hindi", 
+                "hi": "🇮🇳 Hindi",
                 "ta": "🇮🇳 Tamil",
-                "te": "🇮🇳 Telugu",
+                "te": "🇮🇳 Telugu", 
                 "bn": "🇮🇳 Bengali",
                 "gu": "🇮🇳 Gujarati",
                 "mr": "🇮🇳 Marathi"
-            }[x],
+            }.get(x, x),
             help="Select your preferred language"
         )
     
     with col_config2:
         chat_mode = st.selectbox(
             "Chat Mode",
-            options=["text", "voice", "mixed"],
+            ["general", "symptom_checker", "wellness", "mental_health"],
             format_func=lambda x: {
-                "text": "📝 Text Only",
-                "voice": "🎤 Voice Only",
-                "mixed": "🔄 Text & Voice"
-            }[x],
-            help="Choose your interaction mode"
+                "general": "💬 General Health",
+                "symptom_checker": "🩺 Symptom Analysis", 
+                "wellness": "🌟 Wellness Tips",
+                "mental_health": "🧠 Mental Health"
+            }.get(x, x),
+            help="Choose the type of assistance you need"
         )
     
-    # Chat container
+    # Display chat messages
+    st.subheader("💭 Conversation")
+    
+    # Chat container with scrollable area
     chat_container = st.container()
     
-    # Display conversation history
     with chat_container:
-        display_chat_history(session_manager)
-    
-    # Input area
-    st.markdown("---")
-    
-    if chat_mode in ["text", "mixed"]:
-        render_text_input(session_manager, language)
-    
-    if chat_mode in ["voice", "mixed"]:
-        render_voice_input(session_manager, language)
-    
-    # Quick action buttons
-    render_quick_actions(session_manager, language)
-    
-    # Chat controls
-    render_chat_controls(session_manager)
-
-def display_chat_history(session_manager):
-    """Display chat conversation history"""
-    
-    conversations = session_manager.get_conversation_history()
-    
-    if not conversations:
-        # Welcome message
-        st.markdown(
-            create_custom_component(
-                """
-                <div style="text-align: center; padding: 2rem;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🤖</div>
-                    <h3>Hello! I'm your AI Health Assistant</h3>
-                    <p style="color: #666;">
-                        I'm here to help you with health questions, symptom analysis, 
-                        and wellness guidance. How can I assist you today?
-                    </p>
-                    <div style="margin-top: 1.5rem;">
-                        <strong>💡 You can ask me about:</strong>
-                        <ul style="text-align: left; max-width: 400px; margin: 1rem auto;">
-                            <li>Symptoms and health concerns</li>
-                            <li>Wellness tips and advice</li>
-                            <li>Medication information</li>
-                            <li>Healthy lifestyle recommendations</li>
-                            <li>Mental health support</li>
-                        </ul>
+        for message in st.session_state.chat_messages:
+            if message["role"] == "user":
+                st.markdown(
+                    f"""
+                    <div style="display: flex; justify-content: flex-end; margin: 10px 0;">
+                        <div style="background-color: #1f77b4; color: white; padding: 12px 16px; 
+                                    border-radius: 18px 18px 4px 18px; max-width: 70%; word-wrap: break-word;">
+                            <strong>You:</strong> {message["content"]}
+                        </div>
                     </div>
-                </div>
-                """,
-                "card"
-            ),
-            unsafe_allow_html=True
-        )
-        return
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style="display: flex; justify-content: flex-start; margin: 10px 0;">
+                        <div style="background-color: #f0f2f6; color: #333; padding: 12px 16px; 
+                                    border-radius: 18px 18px 18px 4px; max-width: 70%; word-wrap: break-word;
+                                    border: 1px solid #e0e0e0;">
+                            <strong>🤖 AI Assistant:</strong> {message["content"]}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
     
-    # Display conversations
-    for conversation in conversations:
-        timestamp = conversation['timestamp']
-        user_message = conversation['user_message']
-        ai_response = conversation['ai_response']
-        message_type = conversation.get('message_type', 'text')
-        
-        # Format timestamp
-        time_str = timestamp.strftime("%H:%M")
-        
-        # User message
-        st.markdown(
-            f"""
-            <div class="user-message">
-                <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="margin-right: 0.5rem;">
-                        {'🎤' if message_type == 'voice' else '👤'}
-                    </span>
-                    <small style="opacity: 0.8;">{time_str}</small>
-                </div>
-                {user_message}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # AI response
-        st.markdown(
-            f"""
-            <div class="ai-message">
-                <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="margin-right: 0.5rem;">🤖</span>
-                    <small style="opacity: 0.8;">{time_str}</small>
-                </div>
-                {ai_response}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # Add some spacing
-        st.markdown("<br>", unsafe_allow_html=True)
-
-def render_text_input(session_manager, language):
-    """Render text input interface"""
+    # Chat input section
+    st.markdown("---")
+    st.subheader("✍️ Send a Message")
     
-    st.markdown("### 📝 Type your message")
-    
-    # Text input form
+    # Create input form
     with st.form("chat_form", clear_on_submit=True):
         user_input = st.text_area(
-            "Your message:",
-            placeholder="Type your health question or concern here...",
+            "Type your message here:",
+            placeholder="Ask me about your health concerns, symptoms, or wellness tips...",
             height=100,
-            label_visibility="collapsed"
+            key="chat_input"
         )
         
-        col_send, col_clear = st.columns([3, 1])
+        # Form buttons
+        col_send, col_voice, col_clear = st.columns(3)
         
         with col_send:
-            send_clicked = st.form_submit_button(
-                "💬 Send Message",
-                type="primary",
-                use_container_width=True
-            )
+            send_clicked = st.form_submit_button("📤 Send Message", type="primary", use_container_width=True)
+        
+        with col_voice:
+            voice_clicked = st.form_submit_button("🎤 Voice Input", use_container_width=True)
         
         with col_clear:
-            clear_clicked = st.form_submit_button(
-                "🗑️ Clear",
-                use_container_width=True
-            )
+            clear_clicked = st.form_submit_button("🗑️ Clear Chat", use_container_width=True)
     
+    # Handle form submissions
     if send_clicked and user_input.strip():
-        process_text_message(user_input.strip(), session_manager, language)
+        process_user_message(user_input.strip(), chat_mode, language, session_manager)
         st.rerun()
+    elif send_clicked and not user_input.strip():
+        st.warning("Please enter a message before sending.")
+    
+    if voice_clicked:
+        st.info("🎤 Voice input feature coming soon! For now, please use text input.")
     
     if clear_clicked:
+        st.session_state.chat_messages = [
+            {"role": "assistant", "content": "Hello! I'm your AI health assistant. How can I help you today?"}
+        ]
+        st.success("Chat cleared!")
         st.rerun()
-
-def render_voice_input(session_manager, language):
-    """Render voice input interface"""
     
-    st.markdown("### 🎤 Voice Input")
+    # Quick suggestions
+    st.markdown("---")
+    st.subheader("💡 Quick Questions")
     
-    col_voice1, col_voice2 = st.columns(2)
-    
-    with col_voice1:
-        # Audio recorder (placeholder - would need streamlit-audio-recorder)
-        st.info("🔧 Voice recording feature would be implemented here using streamlit-audio-recorder or similar component")
-        
-        # Mock voice input button
-        if st.button("🎤 Start Recording", use_container_width=True):
-            with st.spinner("Recording... (Mock)"):
-                time.sleep(2)
-            
-            # Mock transcription
-            mock_transcription = "I have been feeling tired lately and have a headache."
-            st.success(f"Transcribed: '{mock_transcription}'")
-            
-            # Process the mock message
-            process_text_message(mock_transcription, session_manager, language, message_type="voice")
-            st.rerun()
-    
-    with col_voice2:
-        # Voice settings
-        with st.expander("🔧 Voice Settings"):
-            voice_speed = st.slider("Speech Speed", 0.5, 2.0, 1.0, 0.1)
-            voice_pitch = st.slider("Voice Pitch", 0.5, 2.0, 1.0, 0.1)
-            enable_tts = st.checkbox("Enable Text-to-Speech", value=True)
-
-def render_quick_actions(session_manager, language):
-    """Render quick action buttons"""
-    
-    st.markdown("### ⚡ Quick Actions")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    quick_actions = [
-        ("🤒 Symptoms", "I'm experiencing some symptoms and need guidance"),
-        ("💊 Medications", "I have questions about medications"),
-        ("🏃‍♀️ Fitness", "I want advice on fitness and exercise"),
-        ("🧘‍♂️ Mental Health", "I need support with mental health and stress")
+    suggestions = [
+        "What are some healthy breakfast options?",
+        "How can I improve my sleep quality?", 
+        "What exercises are good for beginners?",
+        "How do I manage stress effectively?",
+        "What are signs of dehydration?",
+        "How often should I have health checkups?"
     ]
     
-    for i, (label, message) in enumerate(quick_actions):
-        col = [col1, col2, col3, col4][i]
+    # Display suggestions in columns
+    col1, col2, col3 = st.columns(3)
+    
+    for i, suggestion in enumerate(suggestions):
+        col = [col1, col2, col3][i % 3]
         with col:
-            if st.button(label, use_container_width=True):
-                process_text_message(message, session_manager, language)
+            if st.button(suggestion, key=f"suggestion_{i}", use_container_width=True):
+                process_user_message(suggestion, chat_mode, language, session_manager)
                 st.rerun()
-
-def render_chat_controls(session_manager):
-    """Render chat control buttons"""
     
+    # Chat statistics
+    if len(st.session_state.chat_messages) > 1:
+        st.markdown("---")
+        col_stats1, col_stats2, col_stats3 = st.columns(3)
+        
+        with col_stats1:
+            user_messages = len([m for m in st.session_state.chat_messages if m["role"] == "user"])
+            st.metric("Your Messages", user_messages)
+        
+        with col_stats2:
+            ai_messages = len([m for m in st.session_state.chat_messages if m["role"] == "assistant"]) - 1  # Exclude welcome message
+            st.metric("AI Responses", ai_messages)
+        
+        with col_stats3:
+            st.metric("Total Exchange", user_messages)
+    
+    # Disclaimer
     st.markdown("---")
-    st.markdown("### 🔧 Chat Controls")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if st.button("📊 Chat Summary", use_container_width=True):
-            generate_chat_summary(session_manager)
-    
-    with col2:
-        if st.button("📤 Export Chat", use_container_width=True):
-            export_chat_history(session_manager)
-    
-    with col3:
-        if st.button("🔄 New Conversation", use_container_width=True):
-            if st.session_state.get('confirm_new_chat', False):
-                session_manager.clear_history("conversations")
-                st.session_state.confirm_new_chat = False
-                st.success("Started new conversation!")
-                st.rerun()
-            else:
-                st.session_state.confirm_new_chat = True
-                st.warning("Click again to confirm starting a new conversation")
-    
-    with col4:
-        if st.button("❓ Help", use_container_width=True):
-            show_chat_help()
+    st.warning("⚠️ **Medical Disclaimer:** This AI assistant provides general health information only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult qualified healthcare providers for medical concerns.")
 
-def process_text_message(user_input, session_manager, language, message_type="text"):
-    """Process user text message and get AI response"""
-    
-    try:
-        # Show typing indicator
-        with st.spinner("🤖 AI is thinking..."):
-            # Import services
-            from api.gateway import ServiceOrchestrator, ChatRequest
-            import asyncio
-            
-            # Create chat request
-            chat_request = ChatRequest(
-                message=user_input,
-                session_id=session_manager.get_session_id(),
-                user_id=session_manager.get_user_info().get('username'),
-                language=language,
-                message_type=message_type
-            )
-            
-            # Process with orchestrator
-            orchestrator = ServiceOrchestrator()
-            
-            async def run_chat():
-                return await orchestrator.process_chat_message(chat_request)
-            
-            result = asyncio.run(run_chat())
-            
-            if result['status'] == 'success':
-                ai_response = result['response']
-                
-                # Add to conversation history
-                session_manager.add_conversation(
-                    user_input,
-                    ai_response,
-                    message_type,
-                    {
-                        'language': language,
-                        'sentiment': result.get('sentiment'),
-                        'confidence': result.get('confidence'),
-                        'processing_time': result.get('processing_time')
-                    }
-                )
-                
-                # Show success message briefly
-                st.success("✅ Message sent!")
-                
-            else:
-                st.error(f"❌ Failed to get response: {result.get('message', 'Unknown error')}")
-                
-    except Exception as e:
-        st.error(f"Error processing message: {str(e)}")
 
-def generate_chat_summary(session_manager):
-    """Generate and display chat summary"""
+def process_user_message(user_input, chat_mode, language, session_manager):
+    """Process user message and generate AI response"""
     
-    conversations = session_manager.get_conversation_history()
+    # Add user message to chat
+    st.session_state.chat_messages.append({"role": "user", "content": user_input})
     
-    if not conversations:
-        st.info("No conversations to summarize yet.")
-        return
+    # Generate AI response
+    with st.spinner("AI is thinking..."):
+        time.sleep(1)  # Simulate processing time
+        ai_response = generate_ai_response(user_input, chat_mode, language)
     
-    # Mock summary generation
-    with st.spinner("Generating chat summary..."):
-        time.sleep(1)
+    # Add AI response to chat
+    st.session_state.chat_messages.append({"role": "assistant", "content": ai_response})
     
-    summary_data = {
-        'total_messages': len(conversations),
-        'conversation_duration': 'This session',
-        'main_topics': ['Health symptoms', 'Wellness advice', 'General questions'],
-        'sentiment_analysis': 'Mostly positive and seeking help',
-        'key_recommendations': [
-            'Consult healthcare provider for persistent symptoms',
-            'Maintain regular exercise routine',
-            'Consider stress management techniques'
-        ]
+    # Save to session manager
+    session_manager.add_conversation(
+        user_message=user_input,
+        ai_response=ai_response,
+        message_type="text",
+        metadata={"language": language, "mode": chat_mode}
+    )
+
+
+def generate_ai_response(user_input, chat_mode, language):
+    """Generate AI response based on user input and mode"""
+    
+    user_lower = user_input.lower()
+    
+    # Specific responses for common questions
+    specific_responses = {
+        "what are some healthy breakfast options?": "Great breakfast options include: oatmeal with fruits and nuts, Greek yogurt with berries, whole grain toast with avocado, smoothies with spinach and banana, or eggs with vegetables. These provide sustained energy and essential nutrients.",
+        "how can i improve my sleep quality?": "To improve sleep quality: maintain a consistent sleep schedule, create a relaxing bedtime routine, keep your bedroom cool and dark, avoid screens before bed, limit caffeine after 2 PM, and try relaxation techniques like deep breathing.",
+        "what exercises are good for beginners?": "Beginner-friendly exercises include: walking, swimming, bodyweight exercises (push-ups, squats), yoga, cycling, and light strength training. Start with 20-30 minutes, 3 times per week, and gradually increase intensity.",
+        "how do i manage stress effectively?": "Effective stress management techniques: deep breathing exercises, regular physical activity, meditation or mindfulness, adequate sleep, time management, social support, and engaging in hobbies you enjoy.",
+        "what are signs of dehydration?": "Signs of dehydration include: thirst, dry mouth, fatigue, dizziness, dark yellow urine, headache, and decreased urination. Drink water regularly throughout the day to prevent dehydration.",
+        "how often should i have health checkups?": "Generally, healthy adults should have annual checkups. However, frequency may vary based on age, health conditions, and risk factors. Consult your healthcare provider for personalized recommendations."
     }
     
-    st.markdown(
-        create_custom_component(
-            f"""
-            <h4>📊 Conversation Summary</h4>
-            <p><strong>Total Messages:</strong> {summary_data['total_messages']}</p>
-            <p><strong>Duration:</strong> {summary_data['conversation_duration']}</p>
-            <p><strong>Main Topics:</strong> {', '.join(summary_data['main_topics'])}</p>
-            <p><strong>Overall Sentiment:</strong> {summary_data['sentiment_analysis']}</p>
-            
-            <h5>🎯 Key Recommendations:</h5>
-            <ul>
-                {''.join([f'<li>{rec}</li>' for rec in summary_data['key_recommendations']])}
-            </ul>
-            """,
-            "card"
-        ),
-        unsafe_allow_html=True
-    )
-
-def export_chat_history(session_manager):
-    """Export chat history for download"""
+    # Check for specific responses first
+    if user_lower in specific_responses:
+        return specific_responses[user_lower]
     
-    conversations = session_manager.get_conversation_history()
+    # Mode-based responses
+    if chat_mode == "symptom_checker":
+        if any(word in user_lower for word in ["headache", "pain", "hurt", "ache"]):
+            return "I understand you're experiencing pain. For headaches, try: 1) Stay hydrated 2) Rest in a quiet, dark room 3) Apply a cold compress. If symptoms persist or worsen, please consult a healthcare professional."
+        elif any(word in user_lower for word in ["fever", "temperature", "hot", "chills"]):
+            return "Fever can indicate your body is fighting an infection. Monitor your temperature, stay hydrated, rest, and consider over-the-counter fever reducers if appropriate. Seek medical attention if fever is high or persistent."
+        elif any(word in user_lower for word in ["cough", "cold", "sore throat"]):
+            return "For cold symptoms: get plenty of rest, stay hydrated, use a humidifier, and consider warm salt water gargles for sore throat. If symptoms worsen or persist beyond a week, consult a healthcare provider."
+        else:
+            return "I'd be happy to help with your symptoms. Can you describe what you're experiencing? Remember, for serious or persistent symptoms, it's important to consult with a healthcare professional for proper evaluation."
     
-    if not conversations:
-        st.info("No conversations to export yet.")
-        return
+    elif chat_mode == "wellness":
+        if any(word in user_lower for word in ["diet", "eat", "food", "nutrition"]):
+            return "For healthy nutrition, focus on: 1) Variety of colorful fruits and vegetables 2) Whole grains 3) Lean proteins 4) Healthy fats 5) Adequate hydration. Limit processed foods, excess sugar, and sodium."
+        elif any(word in user_lower for word in ["exercise", "workout", "fitness"]):
+            return "Regular exercise is crucial for health! Aim for 150 minutes of moderate aerobic activity weekly, plus strength training twice a week. Start slowly and gradually increase intensity. Find activities you enjoy to stay motivated."
+        elif any(word in user_lower for word in ["weight", "lose", "gain"]):
+            return "Weight management involves balancing calories in vs. calories out. Focus on sustainable lifestyle changes: regular physical activity, portion control, and nutritious food choices. Consult a nutritionist for personalized advice."
+        else:
+            return "I'm here to help with wellness questions! Whether it's about healthy eating, exercise, sleep, or lifestyle habits, feel free to ask. What aspect of wellness would you like to focus on?"
     
-    # Prepare export data
-    export_data = {
-        'export_timestamp': datetime.now().isoformat(),
-        'user_info': session_manager.get_user_info(),
-        'total_conversations': len(conversations),
-        'conversations': []
-    }
+    elif chat_mode == "mental_health":
+        if any(word in user_lower for word in ["stress", "anxious", "worried", "anxiety"]):
+            return "Stress and anxiety are common experiences. Try these techniques: 1) Deep breathing exercises 2) Regular physical activity 3) Adequate sleep 4) Mindfulness or meditation 5) Talk to someone you trust. If feelings persist, consider speaking with a mental health professional."
+        elif any(word in user_lower for word in ["sad", "depressed", "down", "depression"]):
+            return "I'm sorry you're feeling this way. It's important to reach out for support. Consider: 1) Talking to friends/family 2) Regular exercise 3) Maintaining routines 4) Professional counseling if needed. Remember, seeking help is a sign of strength."
+        elif any(word in user_lower for word in ["sleep", "insomnia", "tired"]):
+            return "Sleep issues can affect mental health significantly. Try: consistent sleep schedule, relaxing bedtime routine, limiting screen time before bed, and creating a comfortable sleep environment. If problems persist, consult a healthcare provider."
+        else:
+            return "Mental health is just as important as physical health. I'm here to provide general support and information. For serious concerns, please reach out to a mental health professional or crisis helpline. You're not alone."
     
-    for conv in conversations:
-        export_data['conversations'].append({
-            'timestamp': conv['timestamp'].isoformat(),
-            'user_message': conv['user_message'],
-            'ai_response': conv['ai_response'],
-            'message_type': conv.get('message_type', 'text'),
-            'metadata': conv.get('metadata', {})
-        })
-    
-    # Create downloadable file
-    import json
-    export_json = json.dumps(export_data, indent=2, ensure_ascii=False)
-    
-    st.download_button(
-        label="📄 Download Chat History (JSON)",
-        data=export_json,
-        file_name=f"chat_history_{int(time.time())}.json",
-        mime="application/json"
-    )
-    
-    # Also offer text format
-    text_export = f"AI WellnessVision Chat History\n"
-    text_export += f"Exported: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-    text_export += f"Total Conversations: {len(conversations)}\n"
-    text_export += "=" * 50 + "\n\n"
-    
-    for conv in conversations:
-        text_export += f"[{conv['timestamp'].strftime('%H:%M:%S')}] User: {conv['user_message']}\n"
-        text_export += f"[{conv['timestamp'].strftime('%H:%M:%S')}] AI: {conv['ai_response']}\n\n"
-    
-    st.download_button(
-        label="📝 Download Chat History (Text)",
-        data=text_export,
-        file_name=f"chat_history_{int(time.time())}.txt",
-        mime="text/plain"
-    )
-
-def show_chat_help():
-    """Show chat help information"""
-    
-    st.markdown(
-        create_custom_component(
-            """
-            <h4>❓ Chat Help & Tips</h4>
-            
-            <h5>🗣️ How to Chat Effectively:</h5>
-            <ul>
-                <li><strong>Be specific:</strong> Describe your symptoms or concerns in detail</li>
-                <li><strong>Provide context:</strong> Mention duration, severity, and related factors</li>
-                <li><strong>Ask follow-up questions:</strong> Don't hesitate to ask for clarification</li>
-                <li><strong>Use natural language:</strong> Speak as you would to a healthcare provider</li>
-            </ul>
-            
-            <h5>🎤 Voice Features:</h5>
-            <ul>
-                <li>Click the microphone button to start voice recording</li>
-                <li>Speak clearly and at a normal pace</li>
-                <li>Voice messages are automatically transcribed</li>
-                <li>Enable text-to-speech to hear AI responses</li>
-            </ul>
-            
-            <h5>⚡ Quick Actions:</h5>
-            <ul>
-                <li>Use quick action buttons for common topics</li>
-                <li>Export your chat history for your records</li>
-                <li>Generate summaries to review key points</li>
-                <li>Start new conversations when needed</li>
-            </ul>
-            
-            <h5>⚠️ Important Reminders:</h5>
-            <ul>
-                <li>This AI assistant provides general information only</li>
-                <li>Always consult healthcare professionals for medical advice</li>
-                <li>In emergencies, contact emergency services immediately</li>
-                <li>Your privacy and data security are protected</li>
-            </ul>
-            """,
-            "card"
-        ),
-        unsafe_allow_html=True
-    )
+    else:  # general mode
+        greetings = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"]
+        if any(greeting in user_lower for greeting in greetings):
+            return "Hello! I'm your AI health assistant. I'm here to help with general health information, symptom guidance, nutrition advice, and mental health support. How can I assist you today?"
+        
+        health_keywords = ["health", "medical", "doctor", "medicine", "wellness"]
+        if any(keyword in user_lower for keyword in health_keywords):
+            return "I can help with general health information! I can assist with symptom checking, nutrition advice, mental health support, and general wellness tips. What specific area would you like to explore?"
+        
+        return "I'm here to help with your health and wellness questions! You can ask me about symptoms, nutrition, mental health, exercise, or general wellness. What would you like to know?"
