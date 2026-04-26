@@ -130,9 +130,11 @@ except ImportError:
     TORCH_AVAILABLE = False
     logging.warning("PyTorch not available - using mock implementations")
 
-from src.config import ModelConfig, AppConfig
 from src.models import HealthAnalysisResult, AnalysisType, AnalysisStatus, FoodItem, EmotionDetection, HealthCondition
 from src.utils.logging_config import get_logger, log_performance
+from src.config.settings import get_settings
+
+settings = get_settings()
 
 logger = get_logger(__name__)
 
@@ -339,7 +341,7 @@ class ModelManager:
     def get_model(self, model_name: str = None) -> torch.nn.Module:
         """Get a model, loading it if necessary"""
         if model_name is None:
-            model_name = ModelConfig.IMAGE_MODEL_NAME
+            model_name = settings.IMAGE_MODEL_NAME
         
         if model_name not in self.models:
             return self.load_model(model_name)
@@ -361,8 +363,8 @@ class ImagePreprocessor:
     def _get_transforms(self) -> transforms.Compose:
         """Get image preprocessing transforms"""
         return transforms.Compose([
-            transforms.Resize(ModelConfig.IMAGE_INPUT_SIZE),
-            transforms.CenterCrop(ModelConfig.IMAGE_INPUT_SIZE),
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                std=[0.229, 0.224, 0.225])
@@ -382,7 +384,7 @@ class ImagePreprocessor:
                 raise ValueError(f"Unsupported image format: {image_path.suffix}")
             
             # Check file size (max 10MB by default)
-            max_size = AppConfig.MAX_UPLOAD_SIZE
+            max_size = settings.max_upload_bytes
             if image_path.stat().st_size > max_size:
                 raise ValueError(f"Image file too large: {image_path.stat().st_size} bytes")
             

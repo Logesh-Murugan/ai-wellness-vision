@@ -9,10 +9,13 @@ services:
     ports:
       - "8000:8000"
       - "8501:8501"
+    env_file:
+      - .env
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/ai_wellness
+      # Override only Docker-internal networking
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/ai_wellness
       - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
     volumes:
       - ./config:/app/config:ro
       - ./logs:/app/logs

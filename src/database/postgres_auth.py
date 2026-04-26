@@ -365,6 +365,247 @@ class PostgresAuthDatabase:
                 logger.error(f"Failed to update preferences: {e}")
                 return False
 
+    # ─────────────────────────────────────────
+    # Analysis history
+    # ─────────────────────────────────────────
+
+    async def save_analysis(
+        self,
+        user_id: Optional[str],
+        analysis_type: str,
+        image_path: Optional[str],
+        result: Dict[str, Any],
+        confidence: float,
+        recommendations: List[Any],
+    ) -> Optional[str]:
+        """Persist an analysis result and return its UUID."""
+        async with self.pool.acquire() as conn:
+            try:
+                uid = uuid.UUID(user_id) if user_id else None
+                row_id = await conn.fetchval(
+                    """
+                    INSERT INTO analysis_history
+                        (user_id, analysis_type, image_path, result, confidence, recommendations)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    RETURNING id
+                    """,
+                    uid,
+                    analysis_type,
+                    image_path,
+                    json.dumps(result),
+                    confidence,
+                    json.dumps(recommendations),
+                )
+                return str(row_id)
+            except Exception as e:
+                logger.error(f"Failed to save analysis: {e}")
+                return None
+
+    async def get_analysis_by_id(self, analysis_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single analysis result by ID."""
+        async with self.pool.acquire() as conn:
+            try:
+                row = await conn.fetchrow(
+                    "SELECT * FROM analysis_history WHERE id = $1",
+                    uuid.UUID(analysis_id),
+                )
+                if row:
+                    return self._row_to_analysis(row)
+                return None
+            except Exception as e:
+                logger.error(f"Failed to get analysis: {e}")
+                return None
+
+    async def get_analyses_paginated(
+        self,
+        user_id: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        """Return paginated analysis history."""
+        offset = (page - 1) * limit
+        async with self.pool.acquire() as conn:
+            try:
+                if user_id:
+                    uid = uuid.UUID(user_id)
+                    total = await conn.fetchval(
+                        "SELECT count(*) FROM analysis_history WHERE user_id = $1", uid
+                    )
+                    rows = await conn.fetch(
+                        "SELECT * FROM analysis_history WHERE user_id = $1 "
+                        "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+                        uid, limit, offset,
+                    )
+                else:
+                    total = await conn.fetchval("SELECT count(*) FROM analysis_history")
+                    rows = await conn.fetch(
+                        "SELECT * FROM analysis_history ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+                        limit, offset,
+                    )
+                return {
+                    "results": [self._row_to_analysis(r) for r in rows],
+                    "pagination": {
+                        "page": page,
+                        "limit": limit,
+                        "total": total,
+                        "pages": (total + limit - 1) // limit if total else 0,
+                    },
+                }
+            except Exception as e:
+                logger.error(f"Failed to get analyses: {e}")
+                return {"results": [], "pagination": {"page": page, "limit": limit, "total": 0, "pages": 0}}
+
+    @staticmethod
+    def _row_to_analysis(row) -> Dict[str, Any]:
+        """Convert a DB row to the API response dict."""
+        result_data = row["result"] if isinstance(row["result"], dict) else json.loads(row["result"])
+        recs = row["recommendations"]
+        if isinstance(recs, str):
+            recs = json.loads(recs)
+        return {
+            "id": str(row["id"]),
+            "type": row["analysis_type"],
+            "result": result_data.get("result", "") if isinstance(result_data, dict) else str(result_data),
+            "confidence": float(row["confidence"]) if row["confidence"] else 0.0,
+            "recommendations": recs if recs else [],
+            "timestamp": row["created_at"].isoformat() if row["created_at"] else "",
+            "image_path": row["image_path"],
+        }
+
+    # ─────────────────────────────────────────
+    # Chat conversations & messages
+    # ─────────────────────────────────────────
+
+    async def save_conversation(
+        self,
+        user_id: Optional[str],
+        title: str = "New Conversation",
+        mode: str = "general",
+    ) -> Optional[Dict[str, Any]]:
+        """Create a new conversation and return it."""
+        async with self.pool.acquire() as conn:
+            try:
+                uid = uuid.UUID(user_id) if user_id else None
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO chat_conversations (user_id, title, mode)
+                    VALUES ($1, $2, $3)
+                    RETURNING *
+                    """,
+                    uid, title, mode,
+                )
+                return self._row_to_conversation(row) if row else None
+            except Exception as e:
+                logger.error(f"Failed to save conversation: {e}")
+                return None
+
+    async def get_conversations(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List conversations, optionally filtered by user."""
+        async with self.pool.acquire() as conn:
+            try:
+                if user_id:
+                    rows = await conn.fetch(
+                        """
+                        SELECT c.*, (SELECT count(*) FROM chat_messages m WHERE m.conversation_id = c.id) AS message_count
+                        FROM chat_conversations c WHERE c.user_id = $1
+                        ORDER BY c.updated_at DESC
+                        """,
+                        uuid.UUID(user_id),
+                    )
+                else:
+                    rows = await conn.fetch(
+                        """
+                        SELECT c.*, (SELECT count(*) FROM chat_messages m WHERE m.conversation_id = c.id) AS message_count
+                        FROM chat_conversations c
+                        ORDER BY c.updated_at DESC
+                        """
+                    )
+                return [self._row_to_conversation(r) for r in rows]
+            except Exception as e:
+                logger.error(f"Failed to get conversations: {e}")
+                return []
+
+    @staticmethod
+    def _row_to_conversation(row) -> Dict[str, Any]:
+        return {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "mode": row["mode"] or "general",
+            "created_at": row["created_at"].isoformat() if row["created_at"] else "",
+            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else "",
+            "message_count": row.get("message_count", 0),
+        }
+
+    async def save_message(
+        self,
+        conversation_id: str,
+        content: str,
+        is_user: bool,
+        message_type: str = "text",
+    ) -> Optional[Dict[str, Any]]:
+        """Insert a chat message and return it."""
+        async with self.pool.acquire() as conn:
+            try:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO chat_messages (conversation_id, content, is_user, message_type)
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING *
+                    """,
+                    uuid.UUID(conversation_id), content, is_user, message_type,
+                )
+                # Touch conversation updated_at
+                await conn.execute(
+                    "UPDATE chat_conversations SET updated_at = NOW() WHERE id = $1",
+                    uuid.UUID(conversation_id),
+                )
+                return self._row_to_message(row) if row else None
+            except Exception as e:
+                logger.error(f"Failed to save message: {e}")
+                return None
+
+    async def get_messages_paginated(
+        self,
+        conversation_id: str,
+        page: int = 1,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Return paginated messages for a conversation."""
+        offset = (page - 1) * limit
+        async with self.pool.acquire() as conn:
+            try:
+                cid = uuid.UUID(conversation_id)
+                total = await conn.fetchval(
+                    "SELECT count(*) FROM chat_messages WHERE conversation_id = $1", cid
+                )
+                rows = await conn.fetch(
+                    "SELECT * FROM chat_messages WHERE conversation_id = $1 "
+                    "ORDER BY created_at ASC LIMIT $2 OFFSET $3",
+                    cid, limit, offset,
+                )
+                return {
+                    "messages": [self._row_to_message(r) for r in rows],
+                    "pagination": {
+                        "page": page,
+                        "limit": limit,
+                        "total": total,
+                        "pages": (total + limit - 1) // limit if total else 0,
+                    },
+                }
+            except Exception as e:
+                logger.error(f"Failed to get messages: {e}")
+                return {"messages": [], "pagination": {"page": page, "limit": limit, "total": 0, "pages": 0}}
+
+    @staticmethod
+    def _row_to_message(row) -> Dict[str, Any]:
+        return {
+            "id": str(row["id"]),
+            "content": row["content"],
+            "is_user": row["is_user"],
+            "timestamp": row["created_at"].isoformat() if row["created_at"] else "",
+            "type": row.get("message_type", "text"),
+        }
+
 # Global database instance
 postgres_db = PostgresAuthDatabase()
 

@@ -4,7 +4,6 @@ import time
 from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 
-from src.config import ModelConfig, AppConfig
 from src.models import HealthAnalysisResult, AnalysisType, AnalysisStatus, FoodItem, EmotionDetection, HealthCondition
 from src.utils.logging_config import get_logger, log_performance
 

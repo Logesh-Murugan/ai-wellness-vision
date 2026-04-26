@@ -6,7 +6,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
-from src.config import LoggingConfig, AppConfig, Environment
+
+from src.config.settings import get_settings, LOGS_DIR
 
 class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging"""
@@ -38,36 +39,39 @@ class JSONFormatter(logging.Formatter):
 
 def setup_logging() -> None:
     """Configure logging for the application"""
+    settings = get_settings()
     
-    # Create logs directory if it doesn't exist
-    LoggingConfig.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log_file = LOGS_DIR / "app.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
     
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, LoggingConfig.LEVEL))
+    root_logger.setLevel(log_level)
     
     # Clear existing handlers
     root_logger.handlers.clear()
     
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, LoggingConfig.LEVEL))
+    console_handler.setLevel(log_level)
     
     # File handler with rotation
     file_handler = logging.handlers.RotatingFileHandler(
-        LoggingConfig.LOG_FILE,
-        maxBytes=LoggingConfig.MAX_BYTES,
-        backupCount=LoggingConfig.BACKUP_COUNT
+        log_file,
+        maxBytes=10485760, # 10MB
+        backupCount=5
     )
-    file_handler.setLevel(getattr(logging, LoggingConfig.LEVEL))
+    file_handler.setLevel(log_level)
     
     # Choose formatter based on environment
-    if LoggingConfig.USE_JSON_LOGGING or AppConfig.ENVIRONMENT == Environment.PRODUCTION:
+    if settings.USE_JSON_LOGGING or settings.ENVIRONMENT == "production":
         formatter = JSONFormatter()
     else:
         formatter = logging.Formatter(
-            LoggingConfig.FORMAT,
-            datefmt=LoggingConfig.DATE_FORMAT
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
         )
     
     console_handler.setFormatter(formatter)
