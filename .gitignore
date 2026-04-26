@@ -261,3 +261,5 @@ coverage-reports/
 # Deployment artifacts
 deployment/
 releases/
+# IDE settings
+.kiro/
