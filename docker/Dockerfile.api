@@ -1,37 +1,93 @@
-# Optimized Dockerfile for API Service
-FROM python:3.10-slim
+# ---------------------------------------------------------
+# STAGE 1: Builder (Standard Python Dependencies)
+# ---------------------------------------------------------
+FROM python:3.11-slim as builder
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PIP_NO_CACHE_DIR=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Install minimal system dependencies
+WORKDIR /build
+
+# Install system dependencies required for building wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a virtual environment to isolate dependencies
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install standard dependencies (assumes requirements.txt is split or we install core first)
+# We avoid heavy ML libraries here to cache standard dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+
+# ---------------------------------------------------------
+# STAGE 2: ML Builder (Heavy Machine Learning Libraries)
+# ---------------------------------------------------------
+FROM python:3.11-slim as ml-builder
+
+WORKDIR /build
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install system deps required by OpenCV and ML tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch CPU directly to drastically reduce image size (no CUDA)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining ML packages (timm, deepface, etc.) separately to leverage Docker layer caching
+RUN pip install --no-cache-dir timm deepface
+
+
+# ---------------------------------------------------------
+# STAGE 3: Runtime (Final Optimized Image)
+# ---------------------------------------------------------
+FROM python:3.11-slim as runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install runtime system dependencies (curl for healthcheck, pg libraries, OpenCV deps)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    && apt-get clean \
+    libpq5 \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user and group for security
+RUN groupadd -r wellness && useradd -r -g wellness wellness
 
 WORKDIR /app
 
-# Copy and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy the isolated python environment from the ml-builder stage
+COPY --from=ml-builder /opt/venv /opt/venv
 
-# Create non-root user
-RUN groupadd -r app --gid=1000 && \
-    useradd -r -g app --uid=1000 --home-dir=/app --shell=/bin/bash app
+# Copy the application source code
+COPY . .
 
-# Copy application code
-COPY --chown=app:app src/ ./src/
-COPY --chown=app:app config/ ./config/
+# Change ownership of the application to the non-root user
+RUN chown -R wellness:wellness /app
 
-USER app
+# Switch to the non-root user
+USER wellness
 
+# Expose the API port
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# Health check to ensure the API is fully loaded and responsive
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-CMD ["uvicorn", "src.api.gateway:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Launch the application using Gunicorn wrapped around Uvicorn for production-grade worker management
+# 2 workers are optimal for ML workloads on limited CPU cores, timeout set to 120s for deep learning inferences
+CMD ["gunicorn", "src.api.main:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "--timeout", "120", "-b", "0.0.0.0:8000"]
