@@ -1,19 +1,18 @@
 """
 Authentication router – register, login, refresh, logout, me.
-
-All endpoints are prefixed with ``/api/v1/auth`` and tagged ``auth``.
 """
 
 import logging
-import time
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from passlib.context import CryptContext
 
-from src.api.dependencies import get_current_user, get_db
-from src.database.postgres_auth import PostgresAuthDatabase
+from src.api.dependencies import get_current_user, get_user_repo
+from src.database.repositories.user_repository import UserRepository
+from src.database.models import User
 from src.models.api_schemas import (
     AuthResponse,
     LoginRequest,
@@ -21,139 +20,102 @@ from src.models.api_schemas import (
     RegisterRequest,
     UserResponse,
 )
+from src.utils.jwt_utils import create_access_token, create_refresh_token, verify_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
-# ──────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def _generate_tokens(user_id: str) -> tuple[str, str]:
-    """Create an access / refresh token pair.
-
-    In production replace with proper JWT (e.g. python-jose).
-    """
-    ts = int(time.time())
-    access = f"access_token_{user_id}_{ts}"
-    refresh = f"refresh_token_{user_id}_{ts}"
-    return access, refresh
-
-
-def _user_response(user: Dict[str, Any]) -> UserResponse:
-    """Build a sanitised UserResponse from a DB user dict."""
+def _user_response(user: User) -> UserResponse:
+    """Build a sanitised UserResponse from a DB User model."""
     return UserResponse(
-        id=user["id"],
-        name=user.get("name", ""),
-        email=user["email"],
-        firstName=user.get("firstName"),
-        lastName=user.get("lastName"),
-        avatar=user.get("avatar"),
-        preferences=user.get("preferences", {}),
-        created_at=user.get("created_at", datetime.now().isoformat()),
+        id=str(user.id),
+        name=getattr(user, "name", ""),
+        email=user.email,
+        firstName=getattr(user, "first_name", ""),
+        lastName=getattr(user, "last_name", ""),
+        avatar=getattr(user, "avatar", None),
+        preferences=getattr(user, "preferences", {}),
+        created_at=user.created_at.isoformat() if hasattr(user, "created_at") and user.created_at else datetime.utcnow().isoformat(),
     )
-
-
-# ──────────────────────────────────────────────
-# Endpoints
-# ──────────────────────────────────────────────
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: RegisterRequest,
-    db: PostgresAuthDatabase = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> AuthResponse:
     """Create a new user account."""
-    # Check for existing user
-    existing = await db.get_user_by_email(request.email)
+    existing = await user_repo.get_by_email(request.email)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
 
-    # Create user
-    user_id = await db.create_user(
-        email=request.email,
-        password=request.password,
-        first_name=request.firstName,
-        last_name=request.lastName,
-    )
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user",
-        )
+    hashed_password = pwd_context.hash(request.password)
 
-    # Generate tokens & persist session
-    access, refresh = _generate_tokens(user_id)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-    await db.save_session(user_id, access, refresh, expires_at)
-
-    user = await db.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=500, detail="User created but could not be retrieved")
-    user.pop("password_hash", None)
-
+    user_data = {
+        "email": request.email,
+        "password_hash": hashed_password,
+        "first_name": request.firstName,
+        "last_name": request.lastName,
+    }
+    user = await user_repo.create(user_data)
+    
+    user_id = str(user.id)
+    access = create_access_token(data={"sub": user_id})
+    refresh = create_refresh_token(data={"sub": user_id})
+    
     return AuthResponse(
         access_token=access,
         refresh_token=refresh,
         expires_in=3600,
         user=_user_response(user),
     )
-
 
 @router.post("/login", response_model=AuthResponse)
 async def login(
     request: LoginRequest,
-    db: PostgresAuthDatabase = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> AuthResponse:
     """Authenticate with email + password."""
-    user = await db.get_user_by_email(request.email)
+    user = await user_repo.get_by_email(request.email)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-    if not db.verify_password(request.password, user["password_hash"]):
+    if not pwd_context.verify(request.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-    # Generate tokens & persist session
-    access, refresh = _generate_tokens(user["id"])
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-    await db.save_session(user["id"], access, refresh, expires_at)
-
-    user.pop("password_hash", None)
-
+    user_id = str(user.id)
+    
+    access = create_access_token(data={"sub": user_id})
+    refresh = create_refresh_token(data={"sub": user_id})
+    
     return AuthResponse(
         access_token=access,
         refresh_token=refresh,
         expires_in=3600,
         user=_user_response(user),
     )
-
 
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh_token(
     request: RefreshTokenRequest,
-    db: PostgresAuthDatabase = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> AuthResponse:
     """Exchange a valid refresh token for a new token pair."""
-    if not request.refresh_token.startswith("refresh_token_"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token format")
+    payload = verify_token(request.refresh_token, expected_type="refresh")
+    user_id = payload.get("sub")
+    
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token payload")
 
-    parts = request.refresh_token.split("_")
-    if len(parts) < 3:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed refresh token")
-
-    user_id = parts[2]
-    user = await db.get_user_by_id(user_id)
+    user = await user_repo.get_by_id(uuid.UUID(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    # Rotate tokens
-    access, refresh = _generate_tokens(user_id)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-    await db.save_session(user_id, access, refresh, expires_at)
-
-    user.pop("password_hash", None)
-
+    access = create_access_token(data={"sub": user_id})
+    refresh = create_refresh_token(data={"sub": user_id})
+    
     return AuthResponse(
         access_token=access,
         refresh_token=refresh,
@@ -161,22 +123,16 @@ async def refresh_token(
         user=_user_response(user),
     )
 
-
 @router.post("/logout")
 async def logout(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, str]:
-    """Invalidate the current session.
-
-    The ``get_current_user`` dependency already validated the token,
-    so reaching here means the user is authenticated.
-    """
-    return {"message": "Logged out successfully"}
-
+    """Invalidate the current session (stateless JWT)."""
+    return {"message": "Successfully logged out"}
 
 @router.get("/me", response_model=UserResponse)
 async def me(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> UserResponse:
     """Return the authenticated user's profile."""
     return _user_response(current_user)

@@ -6,6 +6,7 @@ import '../../../../shared/presentation/widgets/custom_app_bar.dart';
 import '../widgets/history_filter_bar.dart';
 import '../widgets/history_item_card.dart';
 import '../widgets/history_stats_card.dart';
+import '../providers/history_provider.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -185,21 +186,37 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
   }
   
   Widget _buildAnalysisHistoryTab() {
-    final analysisItems = _getAnalysisHistoryItems();
+    final analysisHistory = ref.watch(analysisHistoryProvider);
     
-    if (analysisItems.isEmpty) {
-      return _buildEmptyState('No analysis history', 'Upload an image to start analyzing');
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: analysisItems.length,
-      itemBuilder: (context, index) {
-        return HistoryItemCard(
-          item: analysisItems[index],
-          onTap: () => _showItemDetails(analysisItems[index]),
+    return analysisHistory.when(
+      data: (records) {
+        if (records.isEmpty) {
+          return _buildEmptyState('No analysis history', 'Upload an image to start analyzing');
+        }
+        
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: records.length,
+          itemBuilder: (context, index) {
+            final record = records[index];
+            // Provide fallback mapping from API record to local HistoryItem
+            final item = HistoryItem(
+              id: record.id ?? index.toString(),
+              type: HistoryItemType.analysis,
+              title: 'Analysis Record',
+              subtitle: 'Result retrieved from server',
+              timestamp: DateTime.now(),
+              data: {'result': 'Success'},
+            );
+            return HistoryItemCard(
+              item: item,
+              onTap: () => _showItemDetails(item),
+            );
+          },
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, st) => Center(child: Text('Error: $e')),
     );
   }
   

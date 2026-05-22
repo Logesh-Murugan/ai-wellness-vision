@@ -6,6 +6,7 @@ PostgreSQL database setup and authentication for AI Wellness Vision
 import os
 import json
 import uuid
+# DEPRECATED: This file can be deleted after confirming all tests pass with new repositories
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List

@@ -118,7 +118,7 @@ class EmotionAnalyzer:
             analysis = DeepFace.analyze(
                 img_path=image_cv2,
                 actions=["emotion"],
-                enforce_detection=True, # Actually set True to trigger fallback if no face
+                enforce_detection=False, # Set to False to prevent crash when no face is detected
                 silent=True
             )
             

@@ -5,24 +5,20 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/presentation/widgets/custom_app_bar.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_tile.dart';
+import '../providers/settings_provider.dart';
 
-class SettingsPage extends ConsumerStatefulWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedLanguage = ref.watch(selectedLanguageProvider);
+    final isDarkMode = ref.watch(darkModeProvider);
+    final notificationsEnabled = ref.watch(notificationsProvider);
+    final voiceEnabled = ref.watch(voiceEnabledProvider);
+    final analyticsEnabled = ref.watch(analyticsEnabledProvider);
+    final voiceSpeed = ref.watch(voiceSpeedProvider);
 
-class _SettingsPageState extends ConsumerState<SettingsPage> {
-  String _selectedLanguage = 'en';
-  String _selectedTheme = 'system';
-  bool _notificationsEnabled = true;
-  bool _voiceEnabled = true;
-  bool _analyticsEnabled = true;
-  double _voiceSpeed = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Settings',
@@ -34,7 +30,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Profile Section
-            _buildProfileSection(),
+            _buildProfileSection(context),
             
             const SizedBox(height: 24),
             
@@ -44,26 +40,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               children: [
                 SettingsTile(
                   title: 'Language',
-                  subtitle: AppConstants.languageNames[_selectedLanguage] ?? 'English',
+                  subtitle: AppConstants.languageNames[selectedLanguage] ?? 'English',
                   leading: const Icon(Icons.language),
-                  onTap: _showLanguageSelector,
+                  onTap: () => _showLanguageSelector(context, ref, selectedLanguage),
                 ),
                 SettingsTile(
-                  title: 'Theme',
-                  subtitle: _getThemeLabel(_selectedTheme),
-                  leading: const Icon(Icons.palette),
-                  onTap: _showThemeSelector,
+                  title: 'Dark Mode',
+                  subtitle: isDarkMode ? 'On' : 'Off',
+                  leading: const Icon(Icons.dark_mode),
+                  trailing: Switch(
+                    value: isDarkMode,
+                    onChanged: (value) {
+                      ref.read(darkModeProvider.notifier).state = value;
+                    },
+                  ),
                 ),
                 SettingsTile(
                   title: 'Notifications',
-                  subtitle: _notificationsEnabled ? 'Enabled' : 'Disabled',
+                  subtitle: notificationsEnabled ? 'Enabled' : 'Disabled',
                   leading: const Icon(Icons.notifications),
                   trailing: Switch(
-                    value: _notificationsEnabled,
+                    value: notificationsEnabled,
                     onChanged: (value) {
-                      setState(() {
-                        _notificationsEnabled = value;
-                      });
+                      ref.read(notificationsProvider.notifier).state = value;
                     },
                   ),
                 ),
@@ -78,29 +77,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               children: [
                 SettingsTile(
                   title: 'Voice Features',
-                  subtitle: _voiceEnabled ? 'Enabled' : 'Disabled',
+                  subtitle: voiceEnabled ? 'Enabled' : 'Disabled',
                   leading: const Icon(Icons.mic),
                   trailing: Switch(
-                    value: _voiceEnabled,
+                    value: voiceEnabled,
                     onChanged: (value) {
-                      setState(() {
-                        _voiceEnabled = value;
-                      });
+                      ref.read(voiceEnabledProvider.notifier).state = value;
                     },
                   ),
                 ),
-                if (_voiceEnabled) ...[
+                if (voiceEnabled) ...[
                   SettingsTile(
                     title: 'Voice Speed',
-                    subtitle: '${_voiceSpeed.toStringAsFixed(1)}x',
+                    subtitle: '${voiceSpeed.toStringAsFixed(1)}x',
                     leading: const Icon(Icons.speed),
-                    onTap: _showVoiceSpeedSlider,
+                    onTap: () => _showVoiceSpeedSlider(context, ref, voiceSpeed),
                   ),
                   SettingsTile(
                     title: 'Voice Type',
                     subtitle: 'Female',
                     leading: const Icon(Icons.person),
-                    onTap: _showVoiceTypeSelector,
+                    onTap: () => _showVoiceTypeSelector(context),
                   ),
                 ],
               ],
@@ -114,14 +111,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               children: [
                 SettingsTile(
                   title: 'Analytics',
-                  subtitle: _analyticsEnabled ? 'Enabled' : 'Disabled',
+                  subtitle: analyticsEnabled ? 'Enabled' : 'Disabled',
                   leading: const Icon(Icons.analytics),
                   trailing: Switch(
-                    value: _analyticsEnabled,
+                    value: analyticsEnabled,
                     onChanged: (value) {
-                      setState(() {
-                        _analyticsEnabled = value;
-                      });
+                      ref.read(analyticsEnabledProvider.notifier).state = value;
                     },
                   ),
                 ),
@@ -129,13 +124,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   title: 'Data Export',
                   subtitle: 'Download your data',
                   leading: const Icon(Icons.download),
-                  onTap: _exportData,
+                  onTap: () => _exportData(context),
                 ),
                 SettingsTile(
                   title: 'Clear History',
                   subtitle: 'Remove all stored data',
                   leading: const Icon(Icons.delete_outline),
-                  onTap: _showClearHistoryDialog,
+                  onTap: () => _showClearHistoryDialog(context),
                 ),
               ],
             ),
@@ -155,19 +150,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   title: 'Privacy Policy',
                   subtitle: 'View our privacy policy',
                   leading: const Icon(Icons.privacy_tip),
-                  onTap: _showPrivacyPolicy,
+                  onTap: () => _showPrivacyPolicy(context),
                 ),
                 SettingsTile(
                   title: 'Terms of Service',
                   subtitle: 'View terms and conditions',
                   leading: const Icon(Icons.description),
-                  onTap: _showTermsOfService,
+                  onTap: () => _showTermsOfService(context),
                 ),
                 SettingsTile(
                   title: 'Help & Support',
                   subtitle: 'Get help and contact support',
                   leading: const Icon(Icons.help),
-                  onTap: _showHelpAndSupport,
+                  onTap: () => _showHelpAndSupport(context),
                 ),
               ],
             ),
@@ -175,14 +170,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             const SizedBox(height: 32),
             
             // Medical Disclaimer
-            _buildMedicalDisclaimer(),
+            _buildMedicalDisclaimer(context),
           ],
         ),
       ),
     );
   }
   
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -254,7 +249,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           
           // Edit button
           IconButton(
-            onPressed: _editProfile,
+            onPressed: () => _editProfile(context),
             icon: const Icon(Icons.edit),
           ),
         ],
@@ -262,7 +257,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
   
-  Widget _buildMedicalDisclaimer() {
+  Widget _buildMedicalDisclaimer(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -305,7 +300,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
   
-  void _showLanguageSelector() {
+  void _showLanguageSelector(BuildContext context, WidgetRef ref, String currentLang) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -329,106 +324,57 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: Text(entry.value),
                 leading: Radio<String>(
                   value: entry.key,
-                  groupValue: _selectedLanguage,
+                  groupValue: currentLang,
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() {
-                        _selectedLanguage = value;
-                      });
+                      ref.read(selectedLanguageProvider.notifier).state = value;
                       Navigator.pop(context);
                     }
                   },
                 ),
                 onTap: () {
-                  setState(() {
-                    _selectedLanguage = entry.key;
-                  });
+                  ref.read(selectedLanguageProvider.notifier).state = entry.key;
                   Navigator.pop(context);
                 },
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
     );
   }
   
-  void _showThemeSelector() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Theme',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ...['light', 'dark', 'system'].map((theme) {
-              return ListTile(
-                title: Text(_getThemeLabel(theme)),
-                leading: Radio<String>(
-                  value: theme,
-                  groupValue: _selectedTheme,
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedTheme = value;
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-                onTap: () {
-                  setState(() {
-                    _selectedTheme = theme;
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            }).toList(),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  void _showVoiceSpeedSlider() {
+  void _showVoiceSpeedSlider(BuildContext context, WidgetRef ref, double currentSpeed) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Voice Speed'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${_voiceSpeed.toStringAsFixed(1)}x'),
-            Slider(
-              value: _voiceSpeed,
-              min: 0.5,
-              max: 2.0,
-              divisions: 6,
-              onChanged: (value) {
-                setState(() {
-                  _voiceSpeed = value;
-                });
-              },
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('0.5x', style: Theme.of(context).textTheme.bodySmall),
-                Text('2.0x', style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ],
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${currentSpeed.toStringAsFixed(1)}x'),
+              Slider(
+                value: currentSpeed,
+                min: 0.5,
+                max: 2.0,
+                divisions: 6,
+                onChanged: (value) {
+                  setState(() {
+                    currentSpeed = value;
+                  });
+                  ref.read(voiceSpeedProvider.notifier).state = value;
+                },
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('0.5x', style: Theme.of(context).textTheme.bodySmall),
+                  Text('2.0x', style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -440,21 +386,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
   
-  void _showVoiceTypeSelector() {
-    // TODO: Implement voice type selector
+  void _showVoiceTypeSelector(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Voice type selector coming soon!')),
     );
   }
   
-  void _exportData() {
-    // TODO: Implement data export
+  void _exportData(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Data export feature coming soon!')),
     );
   }
   
-  void _showClearHistoryDialog() {
+  void _showClearHistoryDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -480,44 +424,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
   
-  void _editProfile() {
-    // TODO: Implement profile editing
+  void _editProfile(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile editing coming soon!')),
     );
   }
   
-  void _showPrivacyPolicy() {
-    // TODO: Show privacy policy
+  void _showPrivacyPolicy(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Privacy policy coming soon!')),
     );
   }
   
-  void _showTermsOfService() {
-    // TODO: Show terms of service
+  void _showTermsOfService(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Terms of service coming soon!')),
     );
   }
   
-  void _showHelpAndSupport() {
-    // TODO: Show help and support
+  void _showHelpAndSupport(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Help & support coming soon!')),
     );
-  }
-  
-  String _getThemeLabel(String theme) {
-    switch (theme) {
-      case 'light':
-        return 'Light';
-      case 'dark':
-        return 'Dark';
-      case 'system':
-        return 'System Default';
-      default:
-        return 'System Default';
-    }
   }
 }
