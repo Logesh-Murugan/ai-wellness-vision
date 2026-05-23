@@ -11,31 +11,35 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+  intl: 0.20.2
+
   # UI & Navigation
   cupertino_icons: ^1.0.2
   go_router: ^13.2.0
-  
+
   # State Management
   riverpod: ^2.5.1
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
-  
+
   # HTTP & API
   dio: ^5.4.1
   json_annotation: ^4.8.1
-  
+
   # Storage & Security
   flutter_secure_storage: ^9.0.0
   shared_preferences: ^2.2.2
-  
+
   # Media & Files
   image_picker: ^1.0.7
   file_picker: ^6.1.1
   permission_handler: ^11.3.0
-  
+
   # Utilities
-  intl: ^0.18.1
   uuid: ^4.3.3
 
 dev_dependencies:
@@ -48,4 +52,5 @@ dev_dependencies:
   riverpod_lint: ^2.3.9
 
 flutter:
+  generate: true
   uses-material-design: true

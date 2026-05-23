@@ -1,0 +1,41 @@
+{
+  "@@locale": "gu",
+  "appTitle": "AI વેલનેસવિઝન",
+  "appTagline": "તમારું સ્વાસ્થ્ય, તમારી ભાષામાં",
+  "welcomeMessage": "પાછા સ્વાગત છે, {name}!",
+  "@welcomeMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "imageAnalysis": "છબી વિશ્લેષણ",
+  "aiChat": "AI આરોગ્ય ચેટ",
+  "voiceAssistant": "વૉઇસ આસિસ્ટન્ટ",
+  "history": "ઇતિહાસ",
+  "profile": "પ્રોફાઇલ",
+  "settings": "સેટિંગ્સ",
+  "analysisPending": "તમારી છબીનું વિશ્લેષણ થઈ રહ્યું છે...",
+  "analysisComplete": "વિશ્લેષણ પૂર્ણ",
+  "analysisError": "વિશ્લેષણ નિષ્ફળ ગયું. કૃપા કરીને ફરી પ્રયાસ કરો.",
+  "chatPlaceholder": "તમારા સ્વાસ્થ્ય વિશે પૂછો...",
+  "chatDisclaimer": "AI ના જવાબો માત્ર માહિતી માટે છે. તબીબી સલાહ માટે ડૉક્ટરની સલાહ લો.",
+  "emergencyTitle": "તબીબી કટોકટી?",
+  "emergencyInfo": "એમ્બ્યુલન્સ માટે 108 અથવા કટોકટી સેવાઓ માટે 112 પર કૉલ કરો",
+  "skinAnalysis": "ત્વચા વિશ્લેષણ",
+  "eyeAnalysis": "આંખનું સ્વાસ્થ્ય",
+  "foodAnalysis": "ખોરાક અને પોષણ",
+  "emotionDetection": "ભાવનાત્મક સ્વાસ્થ્ય",
+  "healthScore": "આરોગ્ય સ્કોર",
+  "recommendations": "ભલામણો",
+  "noHistoryYet": "હજી કોઈ વિશ્લેષણ ઇતિહાસ નથી.\nપ્રથમ વિશ્લેષણ શરૂ કરવા માટે + દબાવો.",
+  "darkMode": "ડાર્ક મોડ",
+  "changeLanguage": "ભાષા બદલો",
+  "logout": "લૉગ આઉટ",
+  "deleteAccount": "ખાતું કાઢી નાખો",
+  "confirmLogout": "શું તમે ખરેખર લૉગ આઉટ કરવા માંગો છો?",
+  "cancel": "રદ કરો",
+  "confirm": "પુષ્ટિ કરો",
+  "loading": "લોડ થઈ રહ્યું છે...",
+  "retry": "ફરી પ્રયાસ કરો",
+  "noInternetConnection": "ઇન્ટરનેટ કનેક્શન નથી. કેટલીક સુવિધાઓ અનુપલબ્ધ હોઈ શકે છે."
+}

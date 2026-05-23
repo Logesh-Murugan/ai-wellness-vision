@@ -1,0 +1,41 @@
+{
+  "@@locale": "en",
+  "appTitle": "AI WellnessVision",
+  "appTagline": "Your health, in your language",
+  "welcomeMessage": "Welcome back, {name}!",
+  "@welcomeMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "imageAnalysis": "Image Analysis",
+  "aiChat": "AI Health Chat",
+  "voiceAssistant": "Voice Assistant",
+  "history": "History",
+  "profile": "Profile",
+  "settings": "Settings",
+  "analysisPending": "Analyzing your image...",
+  "analysisComplete": "Analysis Complete",
+  "analysisError": "Analysis failed. Please try again.",
+  "chatPlaceholder": "Ask me about your health...",
+  "chatDisclaimer": "AI responses are for information only. Consult a doctor for medical advice.",
+  "emergencyTitle": "Medical Emergency?",
+  "emergencyInfo": "Call 108 for Ambulance or 112 for Emergency Services",
+  "skinAnalysis": "Skin Analysis",
+  "eyeAnalysis": "Eye Health",
+  "foodAnalysis": "Food & Nutrition",
+  "emotionDetection": "Emotional Wellness",
+  "healthScore": "Health Score",
+  "recommendations": "Recommendations",
+  "noHistoryYet": "No analysis history yet.\nTap + to start your first analysis.",
+  "darkMode": "Dark Mode",
+  "changeLanguage": "Change Language",
+  "logout": "Log Out",
+  "deleteAccount": "Delete Account",
+  "confirmLogout": "Are you sure you want to log out?",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "loading": "Loading...",
+  "retry": "Retry",
+  "noInternetConnection": "No internet connection. Some features may be unavailable."
+}

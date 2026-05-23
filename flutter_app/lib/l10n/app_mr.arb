@@ -1,0 +1,41 @@
+{
+  "@@locale": "mr",
+  "appTitle": "AI वेलनेसव्हिजन",
+  "appTagline": "तुमचे आरोग्य, तुमच्या भाषेत",
+  "welcomeMessage": "परत स्वागत आहे, {name}!",
+  "@welcomeMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "imageAnalysis": "प्रतिमा विश्लेषण",
+  "aiChat": "AI आरोग्य चॅट",
+  "voiceAssistant": "व्हॉइस असिस्टंट",
+  "history": "इतिहास",
+  "profile": "प्रोफाइल",
+  "settings": "सेटिंग्ज",
+  "analysisPending": "तुमच्या प्रतिमेचे विश्लेषण होत आहे...",
+  "analysisComplete": "विश्लेषण पूर्ण",
+  "analysisError": "विश्लेषण अयशस्वी झाले. कृपया पुन्हा प्रयत्न करा.",
+  "chatPlaceholder": "तुमच्या आरोग्याबद्दल विचारा...",
+  "chatDisclaimer": "AI उत्तरे केवळ माहितीसाठी आहेत. वैद्यकीय सल्ल्यासाठी डॉक्टरांशी संपर्क साधा.",
+  "emergencyTitle": "वैद्यकीय आणीबाणी?",
+  "emergencyInfo": "रुग्णवाहिकेसाठी 108 किंवा आणीबाणी सेवांसाठी 112 वर कॉल करा",
+  "skinAnalysis": "त्वचा विश्लेषण",
+  "eyeAnalysis": "डोळ्यांचे आरोग्य",
+  "foodAnalysis": "अन्न आणि पोषण",
+  "emotionDetection": "भावनिक आरोग्य",
+  "healthScore": "आरोग्य स्कोर",
+  "recommendations": "शिफारसी",
+  "noHistoryYet": "अद्याप कोणताही विश्लेषण इतिहास नाही.\nपहिले विश्लेषण सुरू करण्यासाठी + दाबा.",
+  "darkMode": "डार्क मोड",
+  "changeLanguage": "भाषा बदला",
+  "logout": "लॉग आउट",
+  "deleteAccount": "खाते हटवा",
+  "confirmLogout": "तुम्हाला खरोखर लॉग आउट करायचे आहे का?",
+  "cancel": "रद्द करा",
+  "confirm": "पुष्टी करा",
+  "loading": "लोड होत आहे...",
+  "retry": "पुन्हा प्रयत्न करा",
+  "noInternetConnection": "इंटरनेट कनेक्शन नाही. काही वैशिष्ट्ये अनुपलब्ध असू शकतात."
+}

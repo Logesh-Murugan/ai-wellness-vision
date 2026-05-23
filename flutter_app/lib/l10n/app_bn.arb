@@ -1,0 +1,41 @@
+{
+  "@@locale": "bn",
+  "appTitle": "AI ওয়েলনেসভিশন",
+  "appTagline": "আপনার স্বাস্থ্য, আপনার ভাষায়",
+  "welcomeMessage": "ফিরে স্বাগতম, {name}!",
+  "@welcomeMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "imageAnalysis": "ছবি বিশ্লেষণ",
+  "aiChat": "AI স্বাস্থ্য চ্যাট",
+  "voiceAssistant": "ভয়েস অ্যাসিস্ট্যান্ট",
+  "history": "ইতিহাস",
+  "profile": "প্রোফাইল",
+  "settings": "সেটিংস",
+  "analysisPending": "আপনার ছবি বিশ্লেষণ করা হচ্ছে...",
+  "analysisComplete": "বিশ্লেষণ সম্পন্ন",
+  "analysisError": "বিশ্লেষণ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+  "chatPlaceholder": "আপনার স্বাস্থ্য সম্পর্কে জিজ্ঞেস করুন...",
+  "chatDisclaimer": "AI উত্তর শুধুমাত্র তথ্যের জন্য। চিকিৎসা পরামর্শের জন্য ডাক্তারের সাথে পরামর্শ করুন।",
+  "emergencyTitle": "চিকিৎসা জরুরি অবস্থা?",
+  "emergencyInfo": "অ্যাম্বুলেন্সের জন্য 108 অথবা জরুরি সেবার জন্য 112 তে কল করুন",
+  "skinAnalysis": "ত্বক বিশ্লেষণ",
+  "eyeAnalysis": "চোখের স্বাস্থ্য",
+  "foodAnalysis": "খাবার ও পুষ্টি",
+  "emotionDetection": "আবেগীয় সুস্থতা",
+  "healthScore": "স্বাস্থ্য স্কোর",
+  "recommendations": "সুপারিশ",
+  "noHistoryYet": "এখনও কোনো বিশ্লেষণ ইতিহাস নেই।\nপ্রথম বিশ্লেষণ শুরু করতে + চাপুন।",
+  "darkMode": "ডার্ক মোড",
+  "changeLanguage": "ভাষা পরিবর্তন করুন",
+  "logout": "লগ আউট",
+  "deleteAccount": "অ্যাকাউন্ট মুছুন",
+  "confirmLogout": "আপনি কি সত্যিই লগ আউট করতে চান?",
+  "cancel": "বাতিল করুন",
+  "confirm": "নিশ্চিত করুন",
+  "loading": "লোড হচ্ছে...",
+  "retry": "আবার চেষ্টা করুন",
+  "noInternetConnection": "ইন্টারনেট সংযোগ নেই। কিছু সুবিধা অনুপলব্ধ হতে পারে।"
+}

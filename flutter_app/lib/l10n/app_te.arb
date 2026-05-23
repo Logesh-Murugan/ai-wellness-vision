@@ -1,0 +1,41 @@
+{
+  "@@locale": "te",
+  "appTitle": "AI వెల్నెస్‌విజన్",
+  "appTagline": "మీ ఆరోగ్యం, మీ భాషలో",
+  "welcomeMessage": "తిరిగి స్వాగతం, {name}!",
+  "@welcomeMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "imageAnalysis": "చిత్ర విశ్లేషణ",
+  "aiChat": "AI ఆరోగ్య చాట్",
+  "voiceAssistant": "వాయిస్ అసిస్టెంట్",
+  "history": "చరిత్ర",
+  "profile": "ప్రొఫైల్",
+  "settings": "సెట్టింగులు",
+  "analysisPending": "మీ చిత్రాన్ని విశ్లేషిస్తున్నాం...",
+  "analysisComplete": "విశ్లేషణ పూర్తయింది",
+  "analysisError": "విశ్లేషణ విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+  "chatPlaceholder": "మీ ఆరోగ్యం గురించి అడగండి...",
+  "chatDisclaimer": "AI సమాధానాలు కేవలం సమాచారం కోసం మాత్రమే. వైద్య సలహా కోసం డాక్టర్‌ని సంప్రదించండి.",
+  "emergencyTitle": "వైద్య అత్యవసరమా?",
+  "emergencyInfo": "అంబులెన్స్ కోసం 108 లేదా అత్యవసర సేవలకు 112 కి కాల్ చేయండి",
+  "skinAnalysis": "చర్మ విశ్లేషణ",
+  "eyeAnalysis": "కంటి ఆరోగ్యం",
+  "foodAnalysis": "ఆహారం మరియు పోషణ",
+  "emotionDetection": "భావోద్వేగ ఆరోగ్యం",
+  "healthScore": "ఆరోగ్య స్కోర్",
+  "recommendations": "సిఫార్సులు",
+  "noHistoryYet": "ఇంకా విశ్లేషణ చరిత్ర లేదు.\nమీ మొదటి విశ్లేషణ ప్రారంభించడానికి + నొక్కండి.",
+  "darkMode": "డార్క్ మోడ్",
+  "changeLanguage": "భాష మార్చండి",
+  "logout": "లాగ్ అవుట్",
+  "deleteAccount": "ఖాతా తొలగించు",
+  "confirmLogout": "మీరు నిజంగా లాగ్ అవుట్ చేయాలనుకుంటున్నారా?",
+  "cancel": "రద్దు చేయి",
+  "confirm": "నిర్ధారించు",
+  "loading": "లోడవుతోంది...",
+  "retry": "మళ్ళీ ప్రయత్నించు",
+  "noInternetConnection": "ఇంటర్నెట్ కనెక్షన్ లేదు. కొన్ని ఫీచర్లు అందుబాటులో ఉండకపోవచ్చు."
+}
