@@ -10,23 +10,24 @@ import 'package:flutter_app/features/voice/presentation/voice_page.dart';
 import 'package:flutter_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:flutter_app/features/auth/presentation/login_page.dart';
 import 'package:flutter_app/features/auth/presentation/register_page.dart';
+import 'package:flutter_app/features/health_passport/health_passport_page.dart';
 
 part 'app_router.g.dart';
 
 // Splash page
-class SplashPage extends StatelessWidget { 
-  const SplashPage({super.key}); 
-  @override 
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: CircularProgressIndicator())); 
+class SplashPage extends StatelessWidget {
+  const SplashPage({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 }
 
 class ScaffoldWithNavBar extends StatelessWidget {
   final Widget child;
   const ScaffoldWithNavBar({super.key, required this.child});
-  
+
   @override
   Widget build(BuildContext context) {
-    // Determine current index from route
     int currentIndex = 0;
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/home')) currentIndex = 0;
@@ -36,7 +37,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     if (location.startsWith('/profile')) currentIndex = 4;
 
     return Scaffold(
-      body: child, 
+      body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         type: BottomNavigationBarType.fixed,
@@ -55,8 +56,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
           BottomNavigationBarItem(icon: Icon(Icons.mic), label: 'Voice'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ]
-      )
+        ],
+      ),
     );
   }
 }
@@ -74,15 +75,10 @@ GoRouter router(RouterRef ref) {
     redirect: (context, state) {
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isSplashRoute = state.matchedLocation == '/splash';
-
       if (!isAuthenticated) {
-        if (!isAuthRoute && !isSplashRoute) {
-          return '/auth/login';
-        }
+        if (!isAuthRoute && !isSplashRoute) return '/auth/login';
       } else {
-        if (isAuthRoute || isSplashRoute) {
-          return '/home';
-        }
+        if (isAuthRoute || isSplashRoute) return '/home';
       }
       return null;
     },
@@ -99,12 +95,16 @@ GoRouter router(RouterRef ref) {
         path: '/auth/register',
         builder: (context, state) => const RegisterPage(),
       ),
-      
+
+      // Health Passport — outside ShellRoute (full screen, no bottom nav)
+      GoRoute(
+        path: '/health-passport',
+        builder: (context, state) => const HealthPassportPage(),
+      ),
+
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
-        builder: (context, state, child) {
-          return ScaffoldWithNavBar(child: child);
-        },
+        builder: (context, state, child) => ScaffoldWithNavBar(child: child),
         routes: [
           GoRoute(
             path: '/home',

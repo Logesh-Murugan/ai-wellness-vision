@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../family/widgets/family_selector_widget.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -16,14 +17,16 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('AI Wellness Vision', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('AI Wellness Vision',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+              color:
+                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
             ),
           ),
         ),
@@ -55,7 +58,17 @@ class HomePage extends ConsumerWidget {
               children: [
                 // Animated Welcome Card
                 _WelcomeCard(),
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
+
+                // Family Health Hub
+                Text(
+                  'Family Health Hub',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 12),
+                const FamilySelectorWidget(),
+                const SizedBox(height: 24),
 
                 // Quick Actions Title
                 Row(
@@ -65,25 +78,32 @@ class HomePage extends ConsumerWidget {
                         style: Theme.of(context)
                             .textTheme
                             .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold, fontSize: 22)),
+                            ?.copyWith(
+                                fontWeight: FontWeight.bold, fontSize: 22)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryColor),
+                          Icon(Icons.auto_awesome,
+                              size: 14, color: AppTheme.primaryColor),
                           const SizedBox(width: 4),
-                          Text('Powered by AI', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('Powered by AI',
+                              style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Grid of Actions
                 GridView.count(
                   shrinkWrap: true,
@@ -98,21 +118,21 @@ class HomePage extends ConsumerWidget {
                       subtitle: 'Clinical Grade',
                       icon: Icons.face,
                       gradient: const [Color(0xFFFF6B6B), Color(0xFFFF8E8E)],
-                      onTap: () => context.go('/image-analysis'),
+                      onTap: () => context.go('/analysis'),
                     ),
                     _ActionCard(
                       title: 'Food Scanner',
                       subtitle: 'Nutrition AI',
                       icon: Icons.restaurant,
                       gradient: const [Color(0xFF4ECDC4), Color(0xFF44A08D)],
-                      onTap: () => context.go('/image-analysis'),
+                      onTap: () => context.go('/analysis'),
                     ),
                     _ActionCard(
                       title: 'Visual Q&A',
                       subtitle: 'Ask anything',
                       icon: Icons.psychology,
                       gradient: const [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      onTap: () => context.go('/visual-qa'),
+                      onTap: () => context.go('/chat'),
                     ),
                     _ActionCard(
                       title: 'Voice Chat',
@@ -120,6 +140,13 @@ class HomePage extends ConsumerWidget {
                       icon: Icons.mic,
                       gradient: const [Color(0xFFF6D365), Color(0xFFFDA085)],
                       onTap: () => context.go('/voice'),
+                    ),
+                    _ActionCard(
+                      title: 'Health Passport',
+                      subtitle: 'Download PDF',
+                      icon: Icons.picture_as_pdf,
+                      gradient: const [Color(0xFF10B981), Color(0xFF059669)],
+                      onTap: () => context.go('/health-passport'),
                     ),
                   ],
                 ),
@@ -162,7 +189,6 @@ class _WelcomeCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Decorative background circles
           Positioned(
             right: -20,
             top: -20,
@@ -187,7 +213,6 @@ class _WelcomeCard extends StatelessWidget {
               ),
             ),
           ),
-          // Content
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,7 +222,8 @@ class _WelcomeCard extends StatelessWidget {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.health_and_safety, size: 32, color: Colors.white),
+                child: const Icon(Icons.health_and_safety,
+                    size: 32, color: Colors.white),
               ),
               const SizedBox(height: 20),
               const Text('Welcome Back!',
@@ -207,8 +233,12 @@ class _WelcomeCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       letterSpacing: -0.5)),
               const SizedBox(height: 8),
-              Text('Your AI health assistant is ready. How can I help you today?',
-                  style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 16, height: 1.3)),
+              Text(
+                  'Your AI health assistant is ready. How can I help you today?',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 16,
+                      height: 1.3)),
             ],
           ),
         ],
@@ -236,14 +266,16 @@ class _ActionCard extends StatefulWidget {
   State<_ActionCard> createState() => _ActionCardState();
 }
 
-class _ActionCardState extends State<_ActionCard> with SingleTickerProviderStateMixin {
+class _ActionCardState extends State<_ActionCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 150));
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
@@ -280,7 +312,8 @@ class _ActionCardState extends State<_ActionCard> with SingleTickerProviderState
                   offset: const Offset(0, 8),
                 ),
               ],
-              border: Border.all(color: widget.gradient[0].withOpacity(0.1), width: 1.5),
+              border: Border.all(
+                  color: widget.gradient[0].withOpacity(0.1), width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,15 +331,12 @@ class _ActionCardState extends State<_ActionCard> with SingleTickerProviderState
                   child: Icon(widget.icon, color: Colors.white, size: 28),
                 ),
                 const Spacer(),
-                Text(
-                  widget.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                Text(widget.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(
-                  widget.subtitle,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
+                Text(widget.subtitle,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),
@@ -344,20 +374,36 @@ class _HealthOverviewCard extends StatelessWidget {
                   color: AppTheme.successColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.insights, color: AppTheme.successColor, size: 20),
+                child: const Icon(Icons.insights,
+                    color: AppTheme.successColor, size: 20),
               ),
               const SizedBox(width: 12),
               Text('Health Activity',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 24),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatItem(label: 'Scans', value: '12', icon: Icons.analytics, color: Color(0xFFFF6B6B)),
-              _StatItem(label: 'Chats', value: '45', icon: Icons.chat, color: Color(0xFF4ECDC4)),
-              _StatItem(label: 'Score', value: '92%', icon: Icons.favorite, color: Color(0xFF667EEA)),
+              _StatItem(
+                  label: 'Scans',
+                  value: '12',
+                  icon: Icons.analytics,
+                  color: Color(0xFFFF6B6B)),
+              _StatItem(
+                  label: 'Chats',
+                  value: '45',
+                  icon: Icons.chat,
+                  color: Color(0xFF4ECDC4)),
+              _StatItem(
+                  label: 'Score',
+                  value: '92%',
+                  icon: Icons.favorite,
+                  color: Color(0xFF667EEA)),
             ],
           ),
         ],
@@ -373,8 +419,8 @@ class _StatItem extends StatelessWidget {
   final Color color;
 
   const _StatItem({
-    required this.label, 
-    required this.value, 
+    required this.label,
+    required this.value,
     required this.icon,
     required this.color,
   });
@@ -383,9 +429,13 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 24, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        Text(label,
+            style: TextStyle(
+                color: Colors.grey[600], fontWeight: FontWeight.w500)),
       ],
     );
   }

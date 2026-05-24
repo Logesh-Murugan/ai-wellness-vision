@@ -22,6 +22,15 @@ class ChatRole(str, enum.Enum):
     USER = "user"
     ASSISTANT = "assistant"
 
+class FamilyRelationship(str, enum.Enum):
+    SELF = "self"
+    FATHER = "father"
+    MOTHER = "mother"
+    SPOUSE = "spouse"
+    SIBLING = "sibling"
+    CHILD = "child"
+    OTHER = "other"
+
 class User(Base):
     __tablename__ = "users"
     
@@ -41,6 +50,7 @@ class User(Base):
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     voice_records = relationship("VoiceRecord", back_populates="user", cascade="all, delete-orphan")
     consent_records = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
+    family_members = relationship("FamilyMember", back_populates="owner", cascade="all, delete-orphan")
 
 class AnalysisRecord(Base):
     __tablename__ = "analysis_records"
@@ -53,10 +63,12 @@ class AnalysisRecord(Base):
     model_version: Mapped[str | None] = mapped_column(String, nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     processing_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    family_member_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("family_members.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     user = relationship("User", back_populates="analysis_records")
+    family_member = relationship("FamilyMember", back_populates="analysis_records")
 
     __table_args__ = (
         Index("ix_analysis_records_user_type_created", "user_id", "analysis_type", "created_at"),
@@ -102,6 +114,22 @@ class VoiceRecord(Base):
 
     # Relationships
     user = relationship("User", back_populates="voice_records")
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    relationship: Mapped[FamilyRelationship] = mapped_column(Enum(FamilyRelationship), default=FamilyRelationship.OTHER)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    language_preference: Mapped[str] = mapped_column(String(10), default="en")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    owner = relationship("User", back_populates="family_members")
+    analysis_records = relationship("AnalysisRecord", back_populates="family_member")
+
 
 class ConsentRecord(Base):
     __tablename__ = "consent_records"

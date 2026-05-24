@@ -104,13 +104,15 @@ def create_app() -> FastAPI:
 # ──────────────────────────────────────────────
 
 def _register_routers(app: FastAPI) -> None:
-    from src.api.routers import auth, analysis, chat, voice, visual_qa
+    from src.api.routers import auth, analysis, chat, voice, visual_qa, health_passport, family
 
     app.include_router(auth.router)
     app.include_router(analysis.router)
     app.include_router(chat.router)
     app.include_router(voice.router)
     app.include_router(visual_qa.router)
+    app.include_router(health_passport.router)
+    app.include_router(family.router)
 
 
 # ──────────────────────────────────────────────
