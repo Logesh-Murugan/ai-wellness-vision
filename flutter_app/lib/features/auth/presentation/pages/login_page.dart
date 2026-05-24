@@ -1,4 +1,4 @@
-/// Login page — uses [authProvider] for auth state, Riverpod for all UI state.
+/// Login page — uses [authNotifierProvider] for auth state, Riverpod for all UI state.
 ///
 /// Zero setState(). Loading and password visibility are Riverpod providers.
 library;
@@ -38,7 +38,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ref.read(_loginLoadingProvider.notifier).state = true;
     try {
       await ref
-          .read(authProvider.notifier)
+          .read(authNotifierProvider.notifier)
           .login(_emailCtrl.text.trim(), _passwordCtrl.text);
       if (mounted) context.go('/home');
     } catch (e) {

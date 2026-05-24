@@ -21,7 +21,7 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 );
 
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
-String _$authNotifierHash() => r'd383936d11c207d1f5765eb33163419c74540c1e';
+String _$authNotifierHash() => r'f5abfbff26ff70b6ce06a40c1ec958bbea9d5e79';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

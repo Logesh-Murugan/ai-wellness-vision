@@ -5,7 +5,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/presentation/widgets/custom_app_bar.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_tile.dart';
-import '../providers/settings_provider.dart';
+import '../../providers/settings_provider.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});

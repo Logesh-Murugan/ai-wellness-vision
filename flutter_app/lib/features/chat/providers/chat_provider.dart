@@ -1,5 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_app/core/network/api_client.dart';
+import 'package:ai_wellness_vision/core/network/api_client.dart';
 import 'package:uuid/uuid.dart';
 
 part 'chat_provider.g.dart';

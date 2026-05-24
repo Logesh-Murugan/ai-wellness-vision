@@ -15,9 +15,9 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
-    final user = auth.user;
-    final name = user?.name ?? 'User';
+    final authState = ref.watch(authNotifierProvider);
+    final user = authState.valueOrNull;
+    final name = user?.firstName ?? 'User';
     final email = user?.email ?? 'user@email.com';
 
     return Scaffold(
@@ -95,8 +95,8 @@ class ProfilePage extends ConsumerWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
+                  await ref.read(authNotifierProvider.notifier).logout();
+                  if (context.mounted) context.go('/auth/login');
                 },
                 icon: const Icon(Icons.logout, color: Colors.red),
                 label: const Text('Logout', style: TextStyle(color: Colors.red)),

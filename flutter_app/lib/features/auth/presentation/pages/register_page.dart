@@ -1,4 +1,4 @@
-/// Register page — uses [authProvider] for auth state, Riverpod for all UI state.
+/// Register page — uses [authNotifierProvider] for auth state, Riverpod for all UI state.
 ///
 /// Zero setState(). Loading and password visibility are Riverpod providers.
 library;
@@ -41,7 +41,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (!_formKey.currentState!.validate()) return;
     ref.read(_registerLoadingProvider.notifier).state = true;
     try {
-      await ref.read(authProvider.notifier).register(
+      await ref.read(authNotifierProvider.notifier).register(
             email: _emailCtrl.text.trim(),
             password: _passwordCtrl.text,
             firstName: _firstNameCtrl.text.trim(),

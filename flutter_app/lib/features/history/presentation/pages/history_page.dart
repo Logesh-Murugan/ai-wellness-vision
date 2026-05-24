@@ -6,7 +6,7 @@ import '../../../../shared/presentation/widgets/custom_app_bar.dart';
 import '../widgets/history_filter_bar.dart';
 import '../widgets/history_item_card.dart';
 import '../widgets/history_stats_card.dart';
-import '../providers/history_provider.dart';
+import '../../providers/history_provider.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -201,7 +201,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
             final record = records[index];
             // Provide fallback mapping from API record to local HistoryItem
             final item = HistoryItem(
-              id: record.id ?? index.toString(),
+              id: record.id,
               type: HistoryItemType.analysis,
               title: 'Analysis Record',
               subtitle: 'Result retrieved from server',

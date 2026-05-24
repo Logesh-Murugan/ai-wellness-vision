@@ -6,7 +6,7 @@ part of 'analysis_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$analysisHistoryHash() => r'c0473b06d097999864db7e1dc8baf693ca6d3377';
+String _$analysisHistoryHash() => r'd0c8830442d65050395a0f0b858df5db47657560';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -34,7 +34,8 @@ class _SystemHash {
 const analysisHistoryProvider = AnalysisHistoryFamily();
 
 /// See also [analysisHistory].
-class AnalysisHistoryFamily extends Family<AsyncValue<List<AnalysisRecord>>> {
+class AnalysisHistoryFamily
+    extends Family<AsyncValue<List<Map<String, dynamic>>>> {
   /// See also [analysisHistory].
   const AnalysisHistoryFamily();
 
@@ -76,7 +77,7 @@ class AnalysisHistoryFamily extends Family<AsyncValue<List<AnalysisRecord>>> {
 
 /// See also [analysisHistory].
 class AnalysisHistoryProvider
-    extends AutoDisposeFutureProvider<List<AnalysisRecord>> {
+    extends AutoDisposeFutureProvider<List<Map<String, dynamic>>> {
   /// See also [analysisHistory].
   AnalysisHistoryProvider({
     int limit = 10,
@@ -116,7 +117,8 @@ class AnalysisHistoryProvider
 
   @override
   Override overrideWith(
-    FutureOr<List<AnalysisRecord>> Function(AnalysisHistoryRef provider) create,
+    FutureOr<List<Map<String, dynamic>>> Function(AnalysisHistoryRef provider)
+        create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -134,7 +136,7 @@ class AnalysisHistoryProvider
   }
 
   @override
-  AutoDisposeFutureProviderElement<List<AnalysisRecord>> createElement() {
+  AutoDisposeFutureProviderElement<List<Map<String, dynamic>>> createElement() {
     return _AnalysisHistoryProviderElement(this);
   }
 
@@ -155,7 +157,8 @@ class AnalysisHistoryProvider
   }
 }
 
-mixin AnalysisHistoryRef on AutoDisposeFutureProviderRef<List<AnalysisRecord>> {
+mixin AnalysisHistoryRef
+    on AutoDisposeFutureProviderRef<List<Map<String, dynamic>>> {
   /// The parameter `limit` of this provider.
   int get limit;
 
@@ -164,7 +167,7 @@ mixin AnalysisHistoryRef on AutoDisposeFutureProviderRef<List<AnalysisRecord>> {
 }
 
 class _AnalysisHistoryProviderElement
-    extends AutoDisposeFutureProviderElement<List<AnalysisRecord>>
+    extends AutoDisposeFutureProviderElement<List<Map<String, dynamic>>>
     with AnalysisHistoryRef {
   _AnalysisHistoryProviderElement(super.provider);
 
@@ -174,22 +177,21 @@ class _AnalysisHistoryProviderElement
   int get offset => (origin as AnalysisHistoryProvider).offset;
 }
 
-String _$imageAnalysisNotifierHash() =>
-    r'6b14ca875db77a541ab40fa173c7a9c8eb9c6635';
+String _$analysisNotifierHash() => r'0232096de1836b40755390ab3a378ede80287899';
 
-/// See also [ImageAnalysisNotifier].
-@ProviderFor(ImageAnalysisNotifier)
-final imageAnalysisNotifierProvider = AutoDisposeAsyncNotifierProvider<
-    ImageAnalysisNotifier, AnalysisResult?>.internal(
-  ImageAnalysisNotifier.new,
-  name: r'imageAnalysisNotifierProvider',
+/// See also [AnalysisNotifier].
+@ProviderFor(AnalysisNotifier)
+final analysisNotifierProvider =
+    AutoDisposeNotifierProvider<AnalysisNotifier, AnalysisState>.internal(
+  AnalysisNotifier.new,
+  name: r'analysisNotifierProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$imageAnalysisNotifierHash,
+      : _$analysisNotifierHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$ImageAnalysisNotifier = AutoDisposeAsyncNotifier<AnalysisResult?>;
+typedef _$AnalysisNotifier = AutoDisposeNotifier<AnalysisState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

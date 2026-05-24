@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/chat_provider.dart';
-import '../../data/chat_repository.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -32,7 +31,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    ref.read(chatProvider.notifier).sendMessage(text);
+    ref.read(chatNotifierProvider.notifier).sendMessage(text);
     _controller.clear();
 
     // Scroll to bottom after frame
@@ -49,7 +48,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState = ref.watch(chatProvider);
+    final messages = ref.watch(chatNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +59,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: Column(
         children: [
           // Quick questions (shown only when empty)
-          if (chatState.messages.isEmpty)
+          if (messages.isEmpty)
             SizedBox(
               height: 60,
               child: ListView(
@@ -80,13 +79,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             child: ListView.builder(
               controller: _scrollCtrl,
               padding: const EdgeInsets.all(15),
-              itemCount:
-                  chatState.messages.length + (chatState.isTyping ? 1 : 0),
+              itemCount: messages.length,
               itemBuilder: (context, index) {
-                if (index == chatState.messages.length && chatState.isTyping) {
-                  return _TypingBubble();
-                }
-                return _MessageBubble(message: chatState.messages[index]);
+                return _MessageBubble(message: messages[index]);
               },
             ),
           ),
@@ -133,7 +128,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.isUser;
+    final isUser = message.role == 'user';
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

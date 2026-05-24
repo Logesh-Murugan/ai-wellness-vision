@@ -10,15 +10,14 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../providers/analysis_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/analysis_repository.dart';
 
 class ImageAnalysisPage extends ConsumerWidget {
   const ImageAnalysisPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(analysisProvider);
-    final notifier = ref.read(analysisProvider.notifier);
+    final state = ref.watch(analysisNotifierProvider);
+    final notifier = ref.read(analysisNotifierProvider.notifier);
     
     // Determine active theme colors based on selected analysis type
     final activeColor = _getActiveColor(state.analysisType);

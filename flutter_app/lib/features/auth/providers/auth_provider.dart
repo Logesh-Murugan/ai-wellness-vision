@@ -1,5 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_app/core/network/api_client.dart';
+import 'package:ai_wellness_vision/core/network/api_client.dart';
 
 part 'auth_provider.g.dart';
 
@@ -71,15 +72,35 @@ class AuthNotifier extends _$AuthNotifier {
     });
   }
 
+  Future<void> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final dio = ref.read(apiClientProvider);
+      final storage = ref.read(secureStorageProvider);
+      final response = await dio.post('/api/v1/auth/register', data: {
+        'email': email,
+        'password': password,
+        'first_name': firstName,
+        'last_name': lastName,
+      });
+      final data = response.data;
+      await storage.write(key: 'access_token', value: data['access_token']);
+      await storage.write(key: 'refresh_token', value: data['refresh_token']);
+      return User.fromJson(data['user'] ?? data);
+    });
+  }
+
   Future<void> logout() async {
     final storage = ref.read(secureStorageProvider);
     final dio = ref.read(apiClientProvider);
-    
     try {
-      // Attempt to hit the backend logout endpoint if available
       await dio.post('/api/v1/auth/logout');
     } catch (_) {
-      // Ignore network errors on logout
     } finally {
       await storage.deleteAll();
       state = const AsyncData(null);
