@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_app/features/auth/providers/auth_provider.dart';
 
-import 'package:flutter_app/features/home/presentation/home_page.dart';
+import 'package:flutter_app/features/home/presentation/pages/home_page.dart';
 import 'package:flutter_app/features/image_analysis/presentation/image_analysis_page.dart';
 import 'package:flutter_app/features/chat/presentation/chat_page.dart';
 import 'package:flutter_app/features/voice/presentation/voice_page.dart';
