@@ -189,13 +189,15 @@ class _VisualQAPageState extends ConsumerState<VisualQAPage> {
               _placeholder(),
               const SizedBox(height: 15),
               Row(children: [
-                Expanded(
-                    child: ElevatedButton.icon(
-                  onPressed: () => notifier.pickImage(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Camera'),
-                )),
-                const SizedBox(width: 10),
+                if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) ...[
+                  Expanded(
+                      child: ElevatedButton.icon(
+                    onPressed: () => notifier.pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Camera'),
+                  )),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                     child: OutlinedButton.icon(
                   onPressed: () => notifier.pickImage(ImageSource.gallery),

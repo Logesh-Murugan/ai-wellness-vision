@@ -281,11 +281,13 @@ class _ImagePreviewCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         // Action Buttons
-                        _IconButton(
-                          icon: Icons.camera_alt,
-                          onTap: onCameraTap,
-                        ),
-                        const SizedBox(width: 8),
+                        if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) ...[
+                          _IconButton(
+                            icon: Icons.camera_alt,
+                            onTap: onCameraTap,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         _IconButton(
                           icon: Icons.photo_library,
                           onTap: onGalleryTap,
