@@ -4,12 +4,12 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_app/features/auth/providers/auth_provider.dart';
 
 import 'package:flutter_app/features/home/presentation/pages/home_page.dart';
-import 'package:flutter_app/features/image_analysis/presentation/image_analysis_page.dart';
-import 'package:flutter_app/features/chat/presentation/chat_page.dart';
-import 'package:flutter_app/features/voice/presentation/voice_page.dart';
+import 'package:flutter_app/features/image_analysis/presentation/pages/image_analysis_page.dart';
+import 'package:flutter_app/features/chat/presentation/pages/chat_page.dart';
+import 'package:flutter_app/features/voice/presentation/pages/voice_interaction_page.dart';
 import 'package:flutter_app/features/profile/presentation/pages/profile_page.dart';
-import 'package:flutter_app/features/auth/presentation/login_page.dart';
-import 'package:flutter_app/features/auth/presentation/register_page.dart';
+import 'package:flutter_app/features/auth/presentation/pages/login_page.dart';
+import 'package:flutter_app/features/auth/presentation/pages/register_page.dart';
 import 'package:flutter_app/features/health_passport/health_passport_page.dart';
 
 part 'app_router.g.dart';
@@ -120,7 +120,7 @@ GoRouter router(RouterRef ref) {
           ),
           GoRoute(
             path: '/voice',
-            builder: (context, state) => const VoicePage(),
+            builder: (context, state) => const VoiceInteractionPage(),
           ),
           GoRoute(
             path: '/profile',
