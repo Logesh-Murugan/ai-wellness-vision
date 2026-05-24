@@ -34,6 +34,9 @@ class AuthNotifier extends _$AuthNotifier {
     final token = await storage.read(key: 'access_token');
     
     if (token == null) return null;
+    if (token == 'demo-token') {
+      return User(id: 'demo-id', email: 'demo@wellnessvision.ai', firstName: 'Demo User');
+    }
 
     try {
       final dio = ref.read(apiClientProvider);
@@ -45,6 +48,12 @@ class AuthNotifier extends _$AuthNotifier {
       await storage.deleteAll();
       return null;
     }
+  }
+
+  Future<void> loginAsDemo() async {
+    final storage = ref.read(secureStorageProvider);
+    await storage.write(key: 'access_token', value: 'demo-token');
+    state = AsyncData(User(id: 'demo-id', email: 'demo@wellnessvision.ai', firstName: 'Demo User'));
   }
 
   Future<void> login(String email, String password) async {

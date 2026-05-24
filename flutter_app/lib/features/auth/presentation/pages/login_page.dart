@@ -140,6 +140,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         : const Text('Sign In'),
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Try Demo Mode button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      ref.read(authNotifierProvider.notifier).loginAsDemo();
+                      context.go('/home');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppTheme.primaryColor),
+                      foregroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('Try Demo Mode'),
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 // Register link

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Float, Integer, Enum, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, relationship as orm_relationship
 from sqlalchemy.sql import func
 
 from .session import Base
@@ -127,8 +127,8 @@ class FamilyMember(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    owner = relationship("User", back_populates="family_members")
-    analysis_records = relationship("AnalysisRecord", back_populates="family_member")
+    owner = orm_relationship("User", back_populates="family_members")
+    analysis_records = orm_relationship("AnalysisRecord", back_populates="family_member")
 
 
 class ConsentRecord(Base):

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ai_wellness_vision/core/network/api_client.dart';
+import 'package:ai_wellness_vision/features/auth/providers/auth_provider.dart';
 
 part 'analysis_provider.g.dart';
 
@@ -109,6 +110,44 @@ class AnalysisNotifier extends _$AnalysisNotifier {
   Future<void> analyze() async {
     if (state.selectedImage == null) return;
     state = state.copyWith(isAnalysing: true);
+
+    // Check if we are in demo mode
+    final isDemo = ref.read(authNotifierProvider).valueOrNull?.id == 'demo-id';
+    if (isDemo) {
+      await Future.delayed(const Duration(seconds: 2));
+      final mockResult = state.analysisType == 'skin'
+          ? const AnalysisResult(
+              id: 'mock-skin-analysis',
+              type: 'skin',
+              result: 'Mild contact dermatitis / dryness detected. The skin barrier shows signs of slight irritation.',
+              confidence: 0.89,
+              recommendations: [
+                'Keep the area clean and moisturize with a gentle, fragrance-free cream.',
+                'Avoid harsh soaps or chemicals.',
+                'Apply aloe vera gel to soothe the itchiness.',
+                'Consult a dermatologist if symptoms persist for more than a week.'
+              ],
+              timestamp: '2026-05-24T12:00:00Z',
+            )
+          : const AnalysisResult(
+              id: 'mock-food-analysis',
+              type: 'food',
+              result: 'Fresh garden salad with mixed greens and avocado. High in fiber, healthy monounsaturated fats, vitamins A and C.',
+              confidence: 0.94,
+              recommendations: [
+                'Excellent choice for a low-glycemic, nutrient-dense lunch.',
+                'Add grilled chicken, tofu, or chickpeas to increase protein content.',
+                'Go light on the dressing (prefer olive oil and lemon juice).',
+                'Great for promoting cardiovascular health and skin vitality.'
+              ],
+              timestamp: '2026-05-24T12:00:00Z',
+            );
+      state = state.copyWith(
+        isAnalysing: false,
+        result: AsyncData(mockResult),
+      );
+      return;
+    }
 
     final dio = ref.read(apiClientProvider);
     try {

@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ai_wellness_vision/core/network/api_client.dart';
+import 'package:ai_wellness_vision/features/auth/providers/auth_provider.dart';
 import 'package:uuid/uuid.dart';
 
 part 'chat_provider.g.dart';
@@ -38,6 +39,19 @@ class ChatNotifier extends _$ChatNotifier {
     
     // Create a new list instance to trigger Riverpod state rebuild
     state = [...state, userMessage];
+
+    // Check if we are in demo mode
+    final isDemo = ref.read(authNotifierProvider).valueOrNull?.id == 'demo-id';
+    if (isDemo) {
+      await Future.delayed(const Duration(seconds: 1));
+      final botMessage = ChatMessage(
+        id: const Uuid().v4(),
+        role: 'assistant',
+        content: 'Hi! I am your AI wellness assistant. In Demo Mode, I will respond to your queries with helpful, pre-configured advice. For example: to stay healthy, ensure you get 7-8 hours of sleep, exercise regularly, and drink plenty of water.',
+      );
+      state = [...state, botMessage];
+      return;
+    }
 
     try {
       final dio = ref.read(apiClientProvider);

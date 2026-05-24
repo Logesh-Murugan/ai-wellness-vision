@@ -68,6 +68,8 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 @riverpod
 GoRouter router(RouterRef ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
+  // Watch raw auth state so the router rebuilds when loading → done
+  final authLoading = ref.watch(authNotifierProvider).isLoading;
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -75,9 +77,15 @@ GoRouter router(RouterRef ref) {
     redirect: (context, state) {
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isSplashRoute = state.matchedLocation == '/splash';
+
+      // Stay on splash while auth check is still in flight
+      if (authLoading && isSplashRoute) return null;
+
       if (!isAuthenticated) {
-        if (!isAuthRoute && !isSplashRoute) return '/auth/login';
+        // Auth check done + not logged in → go to login from anywhere
+        if (!isAuthRoute) return '/auth/login';
       } else {
+        // Logged in → skip splash and auth pages
         if (isAuthRoute || isSplashRoute) return '/home';
       }
       return null;
