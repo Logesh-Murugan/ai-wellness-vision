@@ -77,8 +77,9 @@ class VqaNotifier extends StateNotifier<VqaState> {
     state = state.copyWith(isAnalysing: true, clearResult: true);
 
     try {
+      final imageBytes = await state.image!.readAsBytes();
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(state.image!.path,
+        'image': MultipartFile.fromBytes(imageBytes,
             filename: state.image!.name),
         'question': question,
         if (context != null && context.isNotEmpty) 'context': context,

@@ -23,21 +23,26 @@ _VALID_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 
 @router.post("/image", response_model=AnalysisResultResponse)
 async def analyze_image(
-    image: UploadFile = File(...),
+    image: Optional[UploadFile] = File(None),
+    file: Optional[UploadFile] = File(None),
     analysis_type: str = Query("skin", description="skin | food | eye | emotion | wellness"),
     analysis_repo: AnalysisRepository = Depends(get_analysis_repo),
     current_user: Optional[User] = Depends(get_optional_user),
 ) -> AnalysisResultResponse:
     """Upload an image and get AI-powered health analysis."""
+    uploaded = image or file
+    if uploaded is None:
+        raise HTTPException(status_code=400, detail="An image file is required (field 'image' or 'file').")
+
     # ── Validate file ──
-    _validate_image_upload(image)
+    _validate_image_upload(uploaded)
 
     upload_dir = Path("uploads")
     upload_dir.mkdir(exist_ok=True)
-    safe_filename = f"{uuid.uuid4()}_{image.filename}"
+    safe_filename = f"{uuid.uuid4()}_{uploaded.filename}"
     file_path = upload_dir / safe_filename
 
-    content = await image.read()
+    content = await uploaded.read()
     file_path.write_bytes(content)
 
     user_id = str(current_user.id) if current_user else "anonymous"

@@ -151,10 +151,11 @@ class AnalysisNotifier extends _$AnalysisNotifier {
 
     final dio = ref.read(apiClientProvider);
     try {
+      final imageBytes = await state.selectedImage!.readAsBytes();
       final formData = FormData.fromMap({
         'analysis_type': state.analysisType,
-        'file': await MultipartFile.fromFile(
-          state.selectedImage!.path,
+        'image': MultipartFile.fromBytes(
+          imageBytes,
           filename: state.selectedImage!.name,
         ),
       });
@@ -162,6 +163,7 @@ class AnalysisNotifier extends _$AnalysisNotifier {
       final response = await dio.post(
         '/api/v1/analysis/image',
         data: formData,
+        queryParameters: {'analysis_type': state.analysisType},
       );
 
       state = state.copyWith(
