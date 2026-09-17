@@ -1,11 +1,10 @@
-/// Voice interaction page — microphone button, transcription, AI response.
-///
-/// Uses Riverpod [StateNotifier] for all state. Zero setState().
-library;
-
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:ai_wellness_vision/core/network/api_client.dart';
 
 // ─── Voice state + notifier ───────────────
 class VoiceState {
@@ -36,40 +35,74 @@ class VoiceState {
 }
 
 class VoiceNotifier extends StateNotifier<VoiceState> {
-  VoiceNotifier() : super(const VoiceState());
+  final Ref ref;
+  VoiceNotifier(this.ref) : super(const VoiceState());
 
-  void toggleListening() {
-    if (state.isProcessing) return;
-    if (state.isListening) {
-      state = state.copyWith(isListening: false);
-    } else {
-      state = state.copyWith(isListening: true);
-      _startListening();
-    }
-  }
+  Future<void> processTextQuery(String text) async {
+    state = state.copyWith(
+      transcribedText: text,
+      isListening: false,
+      isProcessing: true,
+      aiResponse: '',
+    );
 
-  void _startListening() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!state.isListening) return;
-      state = state.copyWith(
-        transcribedText: 'How can I improve my sleep quality?',
-        isListening: false,
-        isProcessing: true,
+    try {
+      final dio = ref.read(apiClientProvider);
+
+      // 1. Send query to chat message endpoint to get response
+      final convsResponse = await dio.get('/api/v1/chat/conversations');
+      final List convs = convsResponse.data ?? [];
+      String conversationId;
+      if (convs.isNotEmpty) {
+        conversationId = convs.first['id'] as String;
+      } else {
+        final createResponse = await dio.post(
+          '/api/v1/chat/conversations',
+          data: {'title': 'Voice Assistant Chat'},
+        );
+        conversationId = createResponse.data['id'] as String;
+      }
+
+      final chatResponse = await dio.post(
+        '/api/v1/chat/message',
+        data: {
+          'message': text,
+          'conversation_id': conversationId,
+        },
       );
-      _processInput();
-    });
-  }
 
-  void _processInput() {
-    Future.delayed(const Duration(seconds: 2), () {
+      final String assistantReply = chatResponse.data['content'] ?? 'Sorry, I could not understand.';
+
       state = state.copyWith(
-        aiResponse:
-            'To improve sleep quality, maintain a consistent sleep schedule, '
-            'create a relaxing bedtime routine, keep your bedroom cool and dark, '
-            'and avoid caffeine before bedtime.',
+        aiResponse: assistantReply,
         isProcessing: false,
       );
-    });
+
+      // 2. Synthesize response to speech
+      final formData = FormData.fromMap({
+        'text': assistantReply,
+        'language': 'en',
+      });
+
+      final synthResponse = await dio.post(
+        '/voice/synthesize',
+        data: formData,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      // 3. Save audio file locally and play it using OpenFilex
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/assistant_response_${DateTime.now().millisecondsSinceEpoch}.mp3');
+      await file.writeAsBytes(synthResponse.data as List<int>);
+
+      await OpenFilex.open(file.path);
+
+    } catch (e) {
+      state = state.copyWith(
+        aiResponse: 'Error: Failed to communicate with the voice backend.',
+        isProcessing: false,
+      );
+    }
   }
 
   void clear() {
@@ -78,12 +111,46 @@ class VoiceNotifier extends StateNotifier<VoiceState> {
 }
 
 final voiceProvider = StateNotifierProvider<VoiceNotifier, VoiceState>(
-  (ref) => VoiceNotifier(),
+  (ref) => VoiceNotifier(ref),
 );
 
 // ─── Page ─────────────────────────────────
 class VoiceInteractionPage extends ConsumerWidget {
   const VoiceInteractionPage({super.key});
+
+  void _showVoiceInputDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Speak to AI Assistant'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Type your question here...',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                ref.read(voiceProvider.notifier).processTextQuery(text);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,7 +180,7 @@ class VoiceInteractionPage extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: notifier.toggleListening,
+                      onTap: voice.isProcessing ? null : () => _showVoiceInputDialog(context, ref),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: 120,
@@ -128,7 +195,7 @@ class VoiceInteractionPage extends ConsumerWidget {
                           boxShadow: voice.isListening
                               ? [
                                   BoxShadow(
-                                    color: Colors.purple.withValues(alpha: 0.3),
+                                    color: Colors.purple.withOpacity(0.3),
                                     blurRadius: 20,
                                     spreadRadius: 5,
                                   ),
@@ -204,7 +271,7 @@ class VoiceInteractionPage extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: voice.isProcessing ? null : notifier.toggleListening,
+                onPressed: voice.isProcessing ? null : () => _showVoiceInputDialog(context, ref),
                 icon: Icon(voice.isListening ? Icons.stop : Icons.mic),
                 label: Text(
                     voice.isListening ? 'Stop Listening' : 'Start Voice Chat'),

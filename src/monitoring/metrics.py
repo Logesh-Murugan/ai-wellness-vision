@@ -9,7 +9,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 MODEL_PREDICTION_DURATION = Histogram(
     "wellness_model_prediction_duration_seconds",
     "Time spent running ML inference models",
-    labels=["model_type", "analysis_type"],
+    labelnames=["model_type", "analysis_type"],
     buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
 )
 
@@ -17,7 +17,7 @@ MODEL_PREDICTION_DURATION = Histogram(
 PREDICTION_CONFIDENCE = Histogram(
     "wellness_prediction_confidence",
     "Confidence score of ML predictions (0.0 to 1.0)",
-    labels=["model_type", "predicted_class"],
+    labelnames=["model_type", "predicted_class"],
     buckets=[0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.99]
 )
 
@@ -25,7 +25,7 @@ PREDICTION_CONFIDENCE = Histogram(
 ANALYSIS_REQUESTS = Counter(
     "wellness_analysis_requests_total",
     "Total number of AI health analysis requests",
-    labels=["analysis_type", "status", "model_used"]
+    labelnames=["analysis_type", "status", "model_used"]
 )
 
 # Tracks currently active concurrent users
@@ -38,14 +38,14 @@ ACTIVE_USERS = Gauge(
 CHAT_MESSAGES = Counter(
     "wellness_chat_messages_total",
     "Total number of conversational chat requests processed",
-    labels=["language", "response_source"] # response_source: llm, fallback, cache
+    labelnames=["language", "response_source"] # response_source: llm, fallback, cache
 )
 
 # Tracks the time spent processing speech
 VOICE_PROCESSING = Histogram(
     "wellness_voice_processing_duration_seconds",
     "Time spent handling Whisper STT or Edge TTS",
-    labels=["operation"], # operation: transcribe, synthesize
+    labelnames=["operation"], # operation: transcribe, synthesize
     buckets=[0.5, 1.0, 3.0, 5.0, 10.0, 20.0, 30.0]
 )
 
@@ -59,7 +59,7 @@ MODEL_INFO = Info(
 CACHE_HIT_RATE = Gauge(
     "wellness_cache_hit_rate",
     "Cache hit rate percentage (0-100)",
-    labels=["cache_type"] # cache_type: image, nutrition, chat
+    labelnames=["cache_type"] # cache_type: image, nutrition, chat
 )
 
 

@@ -1,0 +1,43 @@
+# ── Minimal requirements for running the full API backend ──
+# (No ML models — uses Gemini API fallback for all analysis)
+
+# Core Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+aiofiles>=23.0.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.0
+asyncpg>=0.29.0
+alembic>=1.12.0
+
+# Redis Cache
+redis>=5.0.0
+
+# Security & Auth
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
+email-validator>=2.0.0
+
+# AI — Gemini API (used for all analysis when local models unavailable)
+google-generativeai>=0.3.0
+pillow>=10.0.0
+
+# PDF generation (Health Passport)
+fpdf2>=2.7.0
+matplotlib>=3.8.0
+
+# Monitoring (Prometheus)
+prometheus-client>=0.19.0
+prometheus-fastapi-instrumentator>=6.1.0
+
+# HTTP
+requests>=2.31.0
+httpx>=0.26.0
+
+# Utilities
+numpy>=1.24.0

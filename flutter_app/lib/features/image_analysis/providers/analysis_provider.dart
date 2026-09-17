@@ -191,7 +191,11 @@ Future<List<Map<String, dynamic>>> analysisHistory(
       '/api/v1/analysis/history',
       queryParameters: {'limit': limit, 'offset': offset},
     );
-    return List<Map<String, dynamic>>.from(response.data ?? []);
+    final data = response.data;
+    if (data is Map && data.containsKey('results')) {
+      return List<Map<String, dynamic>>.from(data['results'] ?? []);
+    }
+    return List<Map<String, dynamic>>.from(data ?? []);
   } catch (_) {
     return [];
   }

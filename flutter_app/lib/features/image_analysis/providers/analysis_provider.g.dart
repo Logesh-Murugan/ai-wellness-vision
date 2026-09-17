@@ -6,7 +6,7 @@ part of 'analysis_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$analysisHistoryHash() => r'd0c8830442d65050395a0f0b858df5db47657560';
+String _$analysisHistoryHash() => r'ebdab22ac33eb817602ac064778679ac97f65159';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -177,7 +177,7 @@ class _AnalysisHistoryProviderElement
   int get offset => (origin as AnalysisHistoryProvider).offset;
 }
 
-String _$analysisNotifierHash() => r'0232096de1836b40755390ab3a378ede80287899';
+String _$analysisNotifierHash() => r'13848f881494f8ff9678fb957086375f7c0c8eee';
 
 /// See also [AnalysisNotifier].
 @ProviderFor(AnalysisNotifier)

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ai_wellness_vision/core/network/api_client.dart';
 
@@ -9,14 +8,21 @@ class User {
   final String id;
   final String email;
   final String firstName;
+  final String? lastName;
 
-  User({required this.id, required this.email, required this.firstName});
+  User({
+    required this.id,
+    required this.email,
+    required this.firstName,
+    this.lastName,
+  });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? '',
       email: json['email'] ?? '',
-      firstName: json['first_name'] ?? '',
+      firstName: json['first_name'] ?? json['name'] ?? '',
+      lastName: json['last_name'],
     );
   }
 }
@@ -63,13 +69,13 @@ class AuthNotifier extends _$AuthNotifier {
       final dio = ref.read(apiClientProvider);
       final storage = ref.read(secureStorageProvider);
 
-      // Using OAuth2 form data as defined by the backend
-      final formData = FormData.fromMap({
-        'username': email,
-        'password': password,
-      });
-
-      final response = await dio.post('/api/v1/auth/login', data: formData);
+      final response = await dio.post(
+        '/api/v1/auth/login',
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
       
       final data = response.data;
       await storage.write(key: 'access_token', value: data['access_token']);

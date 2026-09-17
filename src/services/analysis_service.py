@@ -16,33 +16,50 @@ import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-# Import ML Models
-from src.ai_models.skin_classifier import SkinDiseaseClassifier
-from src.ai_models.food_analyzer import FoodAnalyzer
-from src.ai_models.eye_health_analyzer import EyeHealthAnalyzer
-from src.ai_models.emotion_analyzer import EmotionAnalyzer
+# Import ML Models — optional (heavy deps like torch/transformers)
+_ML_AVAILABLE = False
+try:
+    from src.ai_models.skin_classifier import SkinDiseaseClassifier
+    from src.ai_models.food_analyzer import FoodAnalyzer
+    from src.ai_models.eye_health_analyzer import EyeHealthAnalyzer
+    from src.ai_models.emotion_analyzer import EmotionAnalyzer
+    _ML_AVAILABLE = True
+except ImportError:
+    logging.getLogger(__name__).warning(
+        "⚠️  ML model libraries not installed (torch/transformers) — "
+        "will use Gemini API fallback for all analysis"
+    )
 
-# Import Infrastructure
-from src.cache.cache_service import CacheService
-from src.monitoring.metrics import MODEL_PREDICTION_DURATION
+# Import Infrastructure — optional (Redis cache)
+try:
+    from src.cache.cache_service import CacheService
+    cache_service = CacheService()
+except Exception:
+    cache_service = None
+    logging.getLogger(__name__).warning("⚠️  Redis cache service not available — caching disabled")
 
-logger = logging.getLogger(__name__)
-
-# Initialize Cache
-cache_service = CacheService()
+# Import Monitoring — optional (Prometheus)
+try:
+    from src.monitoring.metrics import MODEL_PREDICTION_DURATION
+except Exception:
+    MODEL_PREDICTION_DURATION = None
+    logging.getLogger(__name__).warning("⚠️  Prometheus metrics not available — metrics disabled")
 
 # Optional Gemini import
+_client = None
+_GEMINI_AVAILABLE = False
+
 try:
-    import google.generativeai as genai
+    from google import genai
     _api_key = os.getenv("GEMINI_API_KEY")
     if _api_key:
-        genai.configure(api_key=_api_key)
+        _client = genai.Client(api_key=_api_key)
         _GEMINI_AVAILABLE = True
-    else:
-        _GEMINI_AVAILABLE = False
-except ImportError:
+except Exception as e:
+    logging.getLogger(__name__).warning("Could not initialize google.genai in AnalysisService: %s", e)
     _GEMINI_AVAILABLE = False
-    genai = None
+
+logger = logging.getLogger(__name__)
 
 class AnalysisService:
     def __init__(self):
@@ -51,6 +68,11 @@ class AnalysisService:
     
     async def initialize(self):
         """Load all 4 models at startup."""
+        if not _ML_AVAILABLE:
+            logger.info("ML libraries not installed — skipping local model loading (using Gemini fallback)")
+            self._models_loaded = True
+            return
+
         logger.info("Initializing AnalysisService models...")
         
         model_configs = [
@@ -79,13 +101,14 @@ class AnalysisService:
             logger.warning("Models not initialized yet. Please call initialize() at startup.")
 
         # 1. Check Redis cache first
-        try:
-            cached = await cache_service.get_cached_analysis(image_bytes, analysis_type)
-            if cached:
-                logger.info(f"Returning cached result for {analysis_type}")
-                return {**cached, "from_cache": True}
-        except Exception as e:
-            logger.warning(f"Cache retrieval failed: {e}")
+        if cache_service is not None:
+            try:
+                cached = await cache_service.get_cached_analysis(image_bytes, analysis_type)
+                if cached:
+                    logger.info(f"Returning cached result for {analysis_type}")
+                    return {**cached, "from_cache": True}
+            except Exception as e:
+                logger.warning(f"Cache retrieval failed: {e}")
         
         # 2. Start timer for Prometheus metric
         start_time = time.time()
@@ -124,10 +147,11 @@ class AnalysisService:
 
         # 4. Record Prometheus metric
         duration = time.time() - start_time
-        try:
-            MODEL_PREDICTION_DURATION.labels(model_type=analysis_type).observe(duration)
-        except Exception as e:
-            logger.warning(f"Failed to record metric: {e}")
+        if MODEL_PREDICTION_DURATION is not None:
+            try:
+                MODEL_PREDICTION_DURATION.labels(model_type=analysis_type).observe(duration)
+            except Exception as e:
+                logger.warning(f"Failed to record metric: {e}")
         
         # 5. Keep Gemini as fallback ONLY if local model failed AND Gemini key exists
         if result.get("error") and _GEMINI_AVAILABLE:
@@ -137,7 +161,7 @@ class AnalysisService:
                 result = gemini_result
 
         # 6. Cache the result (only if successful)
-        if not result.get("error"):
+        if not result.get("error") and cache_service is not None:
             try:
                 await cache_service.cache_analysis(image_bytes, analysis_type, result)
             except Exception as e:
@@ -155,16 +179,14 @@ class AnalysisService:
 
     async def _gemini_fallback(self, image_bytes: bytes, analysis_type: str) -> Optional[Dict]:
         """Analyse an image using Gemini Vision API as a fallback."""
-        if not _GEMINI_AVAILABLE:
+        if not _GEMINI_AVAILABLE or _client is None:
             return None
 
         try:
             import PIL.Image
             import io
             img = PIL.Image.open(io.BytesIO(image_bytes))
-            
-            model = genai.GenerativeModel("models/gemini-2.5-flash")
-            
+
             prompts = {
                 "skin": "Analyze this skin image for general health indicators. Provide wellness recommendations. Avoid medical diagnosis.",
                 "food": "Analyze this food image. Estimate nutritional content and provide healthy eating suggestions.",
@@ -174,8 +196,21 @@ class AnalysisService:
             prompt = prompts.get(analysis_type, "Analyze this health-related image and provide general wellness advice.")
 
             logger.info(f"Sending fallback request to Gemini Vision for {analysis_type}...")
-            # Gemini inference blocks, so wrap in to_thread
-            response = await asyncio.to_thread(model.generate_content, [prompt, img])
+            models_to_try = ["gemini-flash-latest", "gemini-pro-latest"]
+            response = None
+
+            for model_name in models_to_try:
+                try:
+                    # Gemini inference blocks, so wrap in to_thread
+                    response = await asyncio.to_thread(
+                        _client.models.generate_content,
+                        model=model_name,
+                        contents=[prompt, img],
+                    )
+                    if response and response.text:
+                        break
+                except Exception as m_err:
+                    logger.warning("Gemini Vision model %s failed: %s, trying fallback...", model_name, m_err)
 
             if response and response.text:
                 logger.info("✅ Gemini Vision fallback successful")

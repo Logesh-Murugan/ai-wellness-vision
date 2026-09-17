@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../../family/widgets/family_selector_widget.dart';
 
 class HomePage extends ConsumerWidget {
@@ -14,6 +15,10 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authNotifierProvider);
+    final user = authState.valueOrNull;
+    final firstName = user?.firstName ?? '';
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -57,7 +62,7 @@ class HomePage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Animated Welcome Card
-                _WelcomeCard(),
+                _WelcomeCard(firstName: firstName),
                 const SizedBox(height: 20),
 
                 // Family Health Hub
@@ -132,7 +137,7 @@ class HomePage extends ConsumerWidget {
                       subtitle: 'Ask anything',
                       icon: Icons.psychology,
                       gradient: const [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      onTap: () => context.go('/chat'),
+                      onTap: () => context.go('/visual-qa'),
                     ),
                     _ActionCard(
                       title: 'Voice Chat',
@@ -167,8 +172,12 @@ class HomePage extends ConsumerWidget {
 // ─── Sub-widgets ──────────────────────────
 
 class _WelcomeCard extends StatelessWidget {
+  final String firstName;
+  const _WelcomeCard({required this.firstName});
+
   @override
   Widget build(BuildContext context) {
+    final displayName = firstName.isNotEmpty ? firstName : 'User';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -226,8 +235,8 @@ class _WelcomeCard extends StatelessWidget {
                     size: 32, color: Colors.white),
               ),
               const SizedBox(height: 20),
-              const Text('Welcome Back!',
-                  style: TextStyle(
+              Text('Welcome Back, $displayName!',
+                  style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,

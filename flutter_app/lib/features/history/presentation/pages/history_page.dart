@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/presentation/widgets/custom_app_bar.dart';
 import '../widgets/history_filter_bar.dart';
 import '../widgets/history_item_card.dart';
@@ -311,10 +310,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     return _getAllHistoryItems().where((item) => item.type == HistoryItemType.chat).toList();
   }
   
-  List<HistoryItem> _getAnalysisHistoryItems() {
-    return _getAllHistoryItems().where((item) => item.type == HistoryItemType.analysis).toList();
-  }
-  
+
+
   List<HistoryItem> _getVoiceHistoryItems() {
     return _getAllHistoryItems().where((item) => item.type == HistoryItemType.voice).toList();
   }

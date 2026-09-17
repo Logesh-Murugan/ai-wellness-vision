@@ -1,8 +1,7 @@
 class ApiConfig {
   // Base URL for main API server
-  // For mobile testing, replace 'localhost' with your computer's IP address
-  // Example: 'http://192.168.1.100:8000'
-  static const String baseUrl = 'http://10.98.177.214:8000';
+  // Can be overridden via --dart-define=API_BASE_URL=...
+  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
   
   // Authentication endpoints
   static const String authRegister = '/api/v1/auth/register';

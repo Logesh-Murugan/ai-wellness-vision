@@ -1,8 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Float, Integer, Enum, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import String, Boolean, DateTime, Float, Integer, Enum, ForeignKey, Index, Uuid, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship, relationship as orm_relationship
 from sqlalchemy.sql import func
 
@@ -34,7 +33,7 @@ class FamilyRelationship(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
     first_name: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -55,15 +54,15 @@ class User(Base):
 class AnalysisRecord(Base):
     __tablename__ = "analysis_records"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     analysis_type: Mapped[AnalysisType] = mapped_column(Enum(AnalysisType))
     image_path: Mapped[str | None] = mapped_column(String, nullable=True) # Intended for encrypted paths
-    result_json: Mapped[dict] = mapped_column(JSONB)
+    result_json: Mapped[dict] = mapped_column(JSON)
     model_version: Mapped[str | None] = mapped_column(String, nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     processing_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    family_member_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("family_members.id", ondelete="SET NULL"), nullable=True)
+    family_member_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("family_members.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
@@ -77,8 +76,8 @@ class AnalysisRecord(Base):
 class Conversation(Base):
     __tablename__ = "conversations"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     language: Mapped[str] = mapped_column(String, default="en")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -91,12 +90,12 @@ class Conversation(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
     role: Mapped[ChatRole] = mapped_column(Enum(ChatRole))
     content: Mapped[str] = mapped_column(String) # Intended for encrypted content
     message_type: Mapped[str] = mapped_column(String, default="text")
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
@@ -105,7 +104,7 @@ class ChatMessage(Base):
 class VoiceRecord(Base):
     __tablename__ = "voice_records"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     transcript: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -118,7 +117,7 @@ class VoiceRecord(Base):
 class FamilyMember(Base):
     __tablename__ = "family_members"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     relationship: Mapped[FamilyRelationship] = mapped_column(Enum(FamilyRelationship), default=FamilyRelationship.OTHER)
@@ -134,7 +133,7 @@ class FamilyMember(Base):
 class ConsentRecord(Base):
     __tablename__ = "consent_records"
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     consent_type: Mapped[str] = mapped_column(String)
     granted: Mapped[bool] = mapped_column(Boolean)

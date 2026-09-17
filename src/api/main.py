@@ -45,7 +45,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         await postgres_db.initialize()
         logger.info("✅ Database pool initialised")
     except Exception as exc:
-        logger.warning("⚠️  Database init failed (running without DB): %s", exc)
+        logger.warning("⚠️  Database pool init skipped/failed: %s", exc)
+
+    try:
+        from src.database.session import engine, Base
+        if "sqlite" in str(engine.url):
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("✅ SQLite database tables verified/created")
+    except Exception as db_exc:
+        logger.error("❌ Failed to create/verify SQLite tables: %s", db_exc)
 
     yield
 

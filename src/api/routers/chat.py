@@ -19,6 +19,7 @@ from src.models.api_schemas import (
     ConversationResponse,
     CreateConversationRequest,
     PaginatedMessages,
+    PaginationMeta,
 )
 from src.services.chat_service import generate_health_response
 
@@ -72,14 +73,14 @@ async def create_conversation(
     conv_data = {
         "user_id": user_id,
         "title": request.title,
-        "mode": request.mode
     }
     conv = await chat_repo.create_conversation(conv_data)
     return ConversationResponse(
         id=str(conv.id),
         title=conv.title,
-        mode=conv.mode,
-        created_at=conv.created_at.isoformat() if hasattr(conv, "created_at") else datetime.now().isoformat()
+        mode=getattr(conv, 'mode', 'general'),
+        created_at=conv.created_at.isoformat() if hasattr(conv, "created_at") else datetime.now().isoformat(),
+        updated_at=conv.updated_at.isoformat() if hasattr(conv, "updated_at") else datetime.now().isoformat()
     )
 
 @router.get("/conversations/{conversation_id}/messages", response_model=PaginatedMessages)
@@ -101,7 +102,10 @@ async def get_conversation_messages(
             "is_user": r.role == "user",
             "timestamp": r.created_at.isoformat() if hasattr(r, "created_at") else datetime.now().isoformat(),
         })
-    return PaginatedMessages(items=items, total=len(items), page=page, pages=1)
+    return PaginatedMessages(
+        messages=[ChatMessageResponse(**item) for item in items],
+        pagination=PaginationMeta(total=len(items), page=page, limit=limit, pages=1)
+    )
 
 @router.post("/message", response_model=ChatMessageResponse)
 async def send_chat_message(

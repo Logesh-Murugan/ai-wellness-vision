@@ -36,6 +36,10 @@ class PostgresAuthDatabase:
         
     async def initialize(self):
         """Initialize database connection pool"""
+        if "sqlite" in self.database_url:
+            logger.info("ℹ️ SQLite database in use, skipping PostgreSQL connection pool initialization")
+            return
+
         if not POSTGRES_AVAILABLE:
             raise RuntimeError("PostgreSQL dependencies not installed")
             

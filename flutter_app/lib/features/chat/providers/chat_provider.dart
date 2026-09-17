@@ -24,23 +24,48 @@ class ChatMessage {
 
 @riverpod
 class ChatNotifier extends _$ChatNotifier {
+  String? _conversationId;
+
   @override
   List<ChatMessage> build() {
+    Future.microtask(() => _loadHistory());
     return [];
   }
 
+  Future<void> _loadHistory() async {
+    final isDemo = ref.read(authNotifierProvider).valueOrNull?.id == 'demo-id';
+    if (isDemo) return;
+
+    try {
+      final dio = ref.read(apiClientProvider);
+      final convsResponse = await dio.get('/api/v1/chat/conversations');
+      final List convs = convsResponse.data ?? [];
+      if (convs.isNotEmpty) {
+        _conversationId = convs.first['id'] as String;
+        final msgsResponse = await dio.get('/api/v1/chat/conversations/$_conversationId/messages');
+        final List msgs = msgsResponse.data['messages'] ?? [];
+        
+        state = msgs.map((m) {
+          final isUser = m['is_user'] as bool;
+          return ChatMessage(
+            id: m['id'] as String,
+            role: isUser ? 'user' : 'assistant',
+            content: m['content'] as String,
+          );
+        }).toList();
+      }
+    } catch (_) {}
+  }
+
   Future<void> sendMessage(String content, {String language = 'en'}) async {
-    // Optimistic update: immediately show user's message in UI
     final userMessage = ChatMessage(
       id: const Uuid().v4(),
       role: 'user',
       content: content,
     );
     
-    // Create a new list instance to trigger Riverpod state rebuild
     state = [...state, userMessage];
 
-    // Check if we are in demo mode
     final isDemo = ref.read(authNotifierProvider).valueOrNull?.id == 'demo-id';
     if (isDemo) {
       await Future.delayed(const Duration(seconds: 1));
@@ -55,29 +80,40 @@ class ChatNotifier extends _$ChatNotifier {
 
     try {
       final dio = ref.read(apiClientProvider);
+
+      if (_conversationId == null) {
+        final convsResponse = await dio.get('/api/v1/chat/conversations');
+        final List convs = convsResponse.data ?? [];
+        if (convs.isNotEmpty) {
+          _conversationId = convs.first['id'] as String;
+        } else {
+          final createResponse = await dio.post(
+            '/api/v1/chat/conversations',
+            data: {'title': 'General Chat'},
+          );
+          _conversationId = createResponse.data['id'] as String;
+        }
+      }
+
       final response = await dio.post(
         '/api/v1/chat/message',
         data: {
           'message': content,
-          'language': language,
+          'conversation_id': _conversationId,
         },
       );
 
-      // Backend usually returns the assistant's reply object
-      // (or we parse it from response.data['response'])
-      final String assistantReply = response.data['response'] ?? 'Sorry, I could not understand.';
+      final String assistantReply = response.data['content'] ?? 'Sorry, I could not understand.';
       
       final botMessage = ChatMessage(
-        id: const Uuid().v4(),
+        id: response.data['id'] ?? const Uuid().v4(),
         role: 'assistant',
         content: assistantReply,
       );
 
-      // Append bot response
       state = [...state, botMessage];
       
     } catch (e) {
-      // Revert optimistic update or append an error message
       final errorMessage = ChatMessage(
         id: const Uuid().v4(),
         role: 'assistant',
@@ -89,5 +125,6 @@ class ChatNotifier extends _$ChatNotifier {
 
   void clearHistory() {
     state = [];
+    _conversationId = null;
   }
 }

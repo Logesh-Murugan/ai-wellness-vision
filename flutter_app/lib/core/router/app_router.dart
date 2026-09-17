@@ -5,12 +5,15 @@ import 'package:ai_wellness_vision/features/auth/providers/auth_provider.dart';
 
 import 'package:ai_wellness_vision/features/home/presentation/pages/home_page.dart';
 import 'package:ai_wellness_vision/features/image_analysis/presentation/pages/image_analysis_page.dart';
+import 'package:ai_wellness_vision/features/image_analysis/presentation/pages/visual_qa_page.dart';
 import 'package:ai_wellness_vision/features/chat/presentation/pages/chat_page.dart';
 import 'package:ai_wellness_vision/features/voice/presentation/pages/voice_interaction_page.dart';
 import 'package:ai_wellness_vision/features/profile/presentation/pages/profile_page.dart';
 import 'package:ai_wellness_vision/features/auth/presentation/pages/login_page.dart';
 import 'package:ai_wellness_vision/features/auth/presentation/pages/register_page.dart';
 import 'package:ai_wellness_vision/features/health_passport/health_passport_page.dart';
+import 'package:ai_wellness_vision/features/settings/presentation/pages/settings_page.dart';
+import 'package:ai_wellness_vision/features/history/presentation/pages/history_page.dart';
 
 part 'app_router.g.dart';
 
@@ -62,6 +65,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
   }
 }
 
+
+
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -108,6 +113,24 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/health-passport',
         builder: (context, state) => const HealthPassportPage(),
+      ),
+
+      // Settings — full screen, no bottom nav
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPage(),
+      ),
+
+      // History — full screen, no bottom nav
+      GoRoute(
+        path: '/history',
+        builder: (context, state) => const HistoryPage(),
+      ),
+
+      // Visual Q&A — full screen, no bottom nav
+      GoRoute(
+        path: '/visual-qa',
+        builder: (context, state) => const VisualQAPage(),
       ),
 
       ShellRoute(

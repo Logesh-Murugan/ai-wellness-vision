@@ -1,17 +1,10 @@
-/// AI Wellness Vision — entry point.
-///
-/// This file does ONLY three things:
-/// 1. Ensure Flutter bindings are initialised
-/// 2. Set preferred orientations
-/// 3. Wrap the app in [ProviderScope] and run it
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/settings/providers/settings_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,7 +33,9 @@ class AIWellnessApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    // Sync Settings dark-mode toggle → app-level ThemeMode
+    final isDark = ref.watch(darkModeProvider);
+    final themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
 
     return MaterialApp.router(
       title: 'AI Wellness Vision',

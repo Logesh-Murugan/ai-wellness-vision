@@ -12,20 +12,20 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
-# Optional Gemini import
+# Modern google.genai / fallback
 # ──────────────────────────────────────────────
-try:
-    import google.generativeai as genai
+_client = None
+_GEMINI_AVAILABLE = False
 
+try:
+    from google import genai
     _api_key = os.environ.get("GEMINI_API_KEY")
     if _api_key:
-        genai.configure(api_key=_api_key)
+        _client = genai.Client(api_key=_api_key)
         _GEMINI_AVAILABLE = True
-    else:
-        _GEMINI_AVAILABLE = False
-except ImportError:
+except Exception as e:
+    logger.warning("Could not initialize google.genai: %s", e)
     _GEMINI_AVAILABLE = False
-    genai = None  # type: ignore[assignment]
 
 
 # ──────────────────────────────────────────────
@@ -37,7 +37,7 @@ async def generate_health_response(user_message: str) -> str:
 
     Strategy: Gemini AI → enhanced rule-based fallback.
     """
-    if _GEMINI_AVAILABLE:
+    if _GEMINI_AVAILABLE and _client is not None:
         try:
             return await _gemini_response(user_message)
         except Exception as exc:
@@ -52,8 +52,6 @@ async def generate_health_response(user_message: str) -> str:
 
 async def _gemini_response(user_message: str) -> str:
     """Call Gemini generative model with a health-focused system prompt."""
-    model = genai.GenerativeModel("models/gemini-2.5-flash")
-
     health_prompt = (
         "You are a helpful AI health and wellness assistant. "
         "Provide accurate, helpful, and safe health information. "
@@ -64,11 +62,24 @@ async def _gemini_response(user_message: str) -> str:
         "Always include a disclaimer to consult healthcare professionals when appropriate."
     )
 
-    response = model.generate_content(health_prompt)
-    if response and response.text:
-        return response.text.strip()
+    models_to_try = ["gemini-flash-latest", "gemini-pro-latest"]
+    last_err = None
 
-    raise ValueError("Empty Gemini response")
+    for model_name in models_to_try:
+        try:
+            # Run in thread since client.models.generate_content is synchronous
+            response = await asyncio.to_thread(
+                _client.models.generate_content,
+                model=model_name,
+                contents=health_prompt,
+            )
+            if response and response.text:
+                return response.text.strip()
+        except Exception as err:
+            last_err = err
+            logger.warning("Gemini model %s failed: %s, trying fallback...", model_name, err)
+
+    raise ValueError(f"All Gemini models failed: {last_err}")
 
 
 # ──────────────────────────────────────────────

@@ -4,9 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../../core/services/dio_client.dart';
+import '../../../core/network/api_client.dart';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -38,28 +36,14 @@ class PassportState {
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
 class HealthPassportNotifier extends StateNotifier<PassportState> {
-  HealthPassportNotifier() : super(const PassportState());
+  final Ref ref;
+  HealthPassportNotifier(this.ref) : super(const PassportState());
 
   Future<void> generateAndDownload({int periodDays = 7}) async {
     state = state.copyWith(status: PassportStatus.loading, errorMessage: null, filePath: null);
 
     try {
-      // Read token from SharedPreferences (DioClient uses SharedPreferences)
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-
-      final dio = Dio(BaseOptions(
-        baseUrl: const String.fromEnvironment(
-          'API_BASE_URL',
-          defaultValue: 'http://localhost:8000',
-        ),
-        receiveTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 30),
-      ));
-
-      if (token != null) {
-        dio.options.headers['Authorization'] = 'Bearer $token';
-      }
+      final dio = ref.read(apiClientProvider);
 
       final response = await dio.get(
         '/api/v1/health-passport/generate',
@@ -81,7 +65,7 @@ class HealthPassportNotifier extends StateNotifier<PassportState> {
 
       // Auto-open the PDF on device
       await OpenFilex.open(file.path);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       // Fallback for offline/demo mode: generate a mock PDF
       try {
         final dir = await getApplicationDocumentsDirectory();
@@ -160,5 +144,5 @@ startxref
 
 final healthPassportProvider =
     StateNotifierProvider<HealthPassportNotifier, PassportState>(
-  (ref) => HealthPassportNotifier(),
+  (ref) => HealthPassportNotifier(ref),
 );

@@ -10,6 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/chat_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 
+/// Local typing-indicator flag — auto-disposed with this page.
+final _chatIsTypingProvider = StateProvider.autoDispose<bool>((_) => false);
+
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
 
@@ -31,7 +34,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    ref.read(chatNotifierProvider.notifier).sendMessage(text);
+    ref.read(_chatIsTypingProvider.notifier).state = true;
+    ref.read(chatNotifierProvider.notifier).sendMessage(text).whenComplete(() {
+      if (mounted) ref.read(_chatIsTypingProvider.notifier).state = false;
+    });
     _controller.clear();
 
     // Scroll to bottom after frame
@@ -49,6 +55,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(chatNotifierProvider);
+    final isTyping = ref.watch(_chatIsTypingProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -74,13 +81,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
             ),
 
-          // Messages
+          // Messages + optional typing indicator
           Expanded(
             child: ListView.builder(
               controller: _scrollCtrl,
               padding: const EdgeInsets.all(15),
-              itemCount: messages.length,
+              itemCount: messages.length + (isTyping ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == messages.length && isTyping) {
+                  return const _TypingBubble();
+                }
                 return _MessageBubble(message: messages[index]);
               },
             ),
@@ -150,6 +160,8 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
   @override
   Widget build(BuildContext context) {
     return Align(

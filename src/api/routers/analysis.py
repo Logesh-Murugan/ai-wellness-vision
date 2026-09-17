@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from src.api.dependencies import get_current_user, get_optional_user, get_analysis_repo
 from src.database.repositories.analysis_repository import AnalysisRepository
 from src.database.models import User
-from src.models.api_schemas import AnalysisResultResponse, PaginatedAnalyses
+from src.models.api_schemas import AnalysisResultResponse, PaginatedAnalyses, PaginationMeta
 from src.services.analysis_service import analysis_service # Updated import based on previous singleton refactoring
 
 logger = logging.getLogger(__name__)
@@ -74,22 +74,23 @@ async def get_analysis_history(
 ) -> PaginatedAnalyses:
     """Return paginated analysis history for the current user."""
     if not current_user:
-        return PaginatedAnalyses(items=[], total=0, page=page, pages=1)
+        return PaginatedAnalyses(results=[], pagination=PaginationMeta(total=0, page=page, limit=limit, pages=1))
         
     offset = (page - 1) * limit
     records = await analysis_repo.get_user_history(user_id=current_user.id, limit=limit, offset=offset)
     
     items = []
     for r in records:
-        items.append({
-            "id": str(r.id),
-            "type": getattr(r.analysis_type, "value", str(r.analysis_type)),
-            "result": getattr(r, "result_text", ""),
-            "confidence": getattr(r, "confidence", 0.0),
-            "timestamp": r.created_at.isoformat() if hasattr(r, "created_at") else None,
-        })
+        items.append(AnalysisResultResponse(
+            id=str(r.id),
+            type=getattr(r.analysis_type, "value", str(r.analysis_type)),
+            result=getattr(r, "result_text", ""),
+            confidence=getattr(r, "confidence", 0.0),
+            recommendations=[],
+            timestamp=r.created_at.isoformat() if hasattr(r, "created_at") else "",
+        ))
         
-    return PaginatedAnalyses(items=items, total=len(records), page=page, pages=1)
+    return PaginatedAnalyses(results=items, pagination=PaginationMeta(total=len(records), page=page, limit=limit, pages=1))
 
 def _validate_image_upload(image: UploadFile) -> None:
     is_image_mime = image.content_type and image.content_type.startswith("image/")
